@@ -1,10 +1,20 @@
 classdef FEPackObject < matlab.mixin.Copyable
-    % FEPackObject Attributes and methods shared by all FEPack objects.
+    %>@brief FEPackObject Attributes and methods shared by all FEPack objects.
 
     properties
 
         % name for error/log/debug-messages
         name = 'FEPack Object';
+
+    end
+
+    properties (Constant)
+
+      % path to folder in cpp-friendly format (space handling, ...)
+      pathCpp = '/home/pierre/Documents/Etudes/these/codes/Chantier matlab/FEPack';
+      
+      % path to folder in bash-friendly format (space handling, ...)
+      pathBash = '/home/pierre/Documents/Etudes/these/codes/Chantier\ matlab/FEPack';
 
     end
 

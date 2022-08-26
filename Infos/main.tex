@@ -1,0 +1,46 @@
+\documentclass[11pt]{article}
+\usepackage{notations}
+\usepackage{preambule}
+
+\begin{document}
+
+\begin{center}%
+%
+\rule{\textwidth}{0.0281cm}
+\Large \textbf{\texttt{FEPack}}
+\\
+implementation notes
+%
+\vspace{-0.5\baselineskip}
+\rule{\textwidth}{0.0281cm}
+\end{center}
+
+\noindent
+
+\section{Essential conditions}
+In order to handle essential conditions, I used the approach proposed by \texttt{XLiFE++}. Let $\vec{U}$ denote the vector of components of a function $u$ in a vector space $\mathcal{V} = \vectspan\{w_1, w_2,\dots,w_n\}$. Then, any essential condition can be expressed under the generic form
+\begin{equation}
+  \displaystyle
+  \mathbb{E}\, \vec{U} = \vec{\varphi},
+  \label{eq:constraints_u}
+\end{equation}
+where $\mathbb{E}$ is a $m \times n$ matrix, and $\vec{\varphi}$ a $m$--vector. One could impose similar constraints on the associated test function $v$
+\begin{equation}
+  \displaystyle
+  \mathbb{F}\, \vec{V} = 0,
+\end{equation}
+where $\mathbb{F}$ is a $m \times n$ matrix that needs not to be equal to $\mathbb{E}$, so that the discrete problem we are interested in solving is
+\begin{equation}
+  \displaystyle
+  \textnormal{Find $u \in \mathcal{V},\ \ \mathbb{E}\, \vec{U} = \vec{\varphi}$, such that} \qquad a(u, v) = \ell(v), \qquad \spforall v \in \mathcal{V},\ \ \mathbb{E}\, \vec{V} = 0.
+  \label{eq:constrained_system}
+\end{equation}
+The goal is to \emph{compute the projection matrices} corresponding to the constrained spaces $\{u \in \mathcal{V},\ \mathbb{E}\, \vec{U} = 0\}$ and $\{v \in \mathcal{V},\ \mathbb{F}\, \vec{V} = 0\}$, and to rewrite the system \eqref{eq:constrained_system}.
+
+\subsection{Reducing the constraints}
+Under the general form \eqref{eq:constraints_u}, the essential conditions might admit redundant or contradictory constraints. Therefore, they need to be reduced to a minimal system. To do so, we use a QR decomposition with permutation. In \texttt{Matlab}, given the $m \times n$ matrix $\mathbb{E}$, the command
+\[
+  \texttt{[Q, R, P] = qr(E)}
+\]
+returns an $m \times m$ unitary matrix $\mathbb{Q}$, an $m \times n$ upper triangular matrix $\mathbb{R}$ as well as an $m \times n$ permutation matrix $\mathbb{P}$ such that $\mathbb{E}\, \mathbb{P} = \mathbb{Q}\, \mathbb{R}$. Additionaly, $\mathbb{E}$ is chosen so that the components of $\mathbb{R}$ are in decreasing order.   
+\end{document}
