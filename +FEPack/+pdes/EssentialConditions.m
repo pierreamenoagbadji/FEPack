@@ -26,12 +26,12 @@ classdef EssentialConditions < FEPack.FEPackObject
   methods
 
     function ecsRes = plus(ecsA, ecsB)
-      ecsRes = FEPack.pdes.EssentialConditions;
+      ecsRes = copy(ecsA);
       ecsRes.C = ecsA.C + ecsB.C;
     end
 
     function ecsRes = mtimes(T, ecs)
-      ecsRes = FEPack.pdes.EssentialConditions;
+      ecsRes = copy(ecs);
       ecsRes.C = T * ecs.C;
     end
 
@@ -44,13 +44,13 @@ classdef EssentialConditions < FEPack.FEPackObject
     end
 
     function ecsRes = and(ecsA, ecsB)
-      ecsRes = FEPack.pdes.EssentialConditions;
+      ecsRes = copy(ecsA);
       ecsRes.C = [ecsA.C; ecsB.C];
       ecsRes.rhs = [ecsA.rhs; ecsB.rhs];
     end
 
     function ecsRes = assignEcs(ecs, rhs)
-      ecsRes = ecs;
+      ecsRes = copy(ecs);
 
       if (size(rhs, 1) == 1)
         rhs = ones(size(ecs.C, 1), 1) * rhs;

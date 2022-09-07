@@ -30,6 +30,24 @@ classdef QuadratureObject < FEPack.FEPackObject
 
   methods (Static)
 
+    function quadRule = quadrature_from_points(quadRule, points, weights, infoDegree)
+
+      % There should be as much points as there are weights
+      if (size(points, 1) ~= length(weights))
+        error('Le nombre de points et de poids de quadrature doivent être égaux.');
+      end
+
+      quadRule.numQuad = size(points, 1);
+      quadRule.dimension = size(points, 2);
+      quadRule.points = points;
+      quadRule.weights = weights;
+
+      if (nargin >= 4)
+        quadRule.infoDegree = infoDegree;
+      end
+
+    end
+
     function quadRule = symetrical_Gauss_segment(Nquad, a, b)
 
       % Uses Golub-Welsch algorithm to generate a 1D Gauss Legendre quadrature
@@ -60,6 +78,61 @@ classdef QuadratureObject < FEPack.FEPackObject
       quadRule.dimension = 1;
       quadRule.points = 0.5*(b + a) + 0.5*(b - a) * diag(D).';
       quadRule.weights = (b - a) * abs(V(1,:)).^2;
+
+    end
+
+    function compRule = composite_segment(varargin)
+
+      % COMPOSITE_SEGMENT subdivides the segment in multiple pieces. On each
+      % of these pieces, a quadrature rule is applied.
+      %
+      % The first argument (string) indicates the type of mesh:
+      %     - for a uniform mesh, the syntax is
+      %         mesh = meshes.MeshSegment('uniform', a, b, N, unitQuadRule)
+      %       a, b are the bounds of the segment, N is the number of nodes,
+      %       and unitQuadRule is the to be applied on each subdivision
+      %
+      %     - for a mesh generated from points, the syntax is
+      %         mesh = meshes.MeshSegment('vertices', points, unitQuadRule)
+      %       points is a list of the nodes.
+
+      % Trivial case: uniform mesh with less than two points
+      if (strcmpi(varargin{1}, 'uniform') && (varargin{4} < 2))
+
+        compRule.points = 0.0;
+        compRule.weights = 1.0;
+
+      else
+
+        entrees = varargin;
+
+        % Default quadrature for the subdivisions
+        if ((strcmpi(varargin{1}, 'uniform')  && nargin < 5) ||...
+            (strcmpi(varargin{1}, 'vertices') && nargin < 3))
+
+          unitQuadRule = FEPack.tools.QuadratureObject(1);
+
+        else
+
+          unitQuadRule = entrees{end};
+          entrees(end) = [];
+
+        end
+
+        nodes = FEPack.meshes.MeshSegment(entrees{:}).points(:, 1);
+        Len = nodes(2:end, :) - nodes(1:end-1, :);
+        Nquad = unitQuadRule.numQuad;
+
+        compRule.points = nodes(1:end-1, :) * ones(1, Nquad) + Len * unitQuadRule.points;
+        compRule.weights = Len * unitQuadRule.weights;
+
+        compRule.points = compRule.points(:);
+        compRule.weights = compRule.weights(:);
+
+      end
+
+      compRule.numQuad = length(compRule.weights);
+      compRule.dimension = 1;
 
     end
 
@@ -1023,6 +1096,8 @@ classdef QuadratureObject < FEPack.FEPackObject
       if (nargin > 0)
 
         switch (dimension)
+        case 0
+          quadRule = FEPack.tools.QuadratureObject.quadrature_from_points(0, 1);
         case 1
           quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_segment(6, 0, 1);
         case 2
@@ -1030,7 +1105,7 @@ classdef QuadratureObject < FEPack.FEPackObject
         case 3
           quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_tetrahedron(6);
         otherwise
-          error('La dimension doit être un entier compris entre 1 et 3.');
+          error('La dimension doit être un entier compris entre 0 et 3.');
         end
 
       end

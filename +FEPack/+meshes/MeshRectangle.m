@@ -93,16 +93,19 @@ classdef MeshRectangle < FEPack.meshes.Mesh
       end
 
       % Construct maps between edge nodes and subdomains
+      % The domains are ordered as : xmax - xmin - ymax - ymin
       evec = [2; 3; 4; 5];
       Icoo = [1; 2; 1; 2];
+      numD = [4; 1; 3; 2];
+
       for idom = 1:4
         % Maps between edge nodes
         pts = unique(mesh.segments(mesh.refSegments == evec(idom), :));
         [~, cle] = sort(mesh.points(pts, Icoo(idom)));
-        mesh.maps{idom} = pts(cle);
+        mesh.maps{numD(idom)} = pts(cle);
 
         % Subdomains
-        mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 1, evec(idom), pts(cle));
+        mesh.domains{numD(idom)} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 1, evec(idom), pts(cle));
       end
       mesh.domains{5} = FEPack.meshes.FEDomain(mesh, 'volumic', 2, 0);
 

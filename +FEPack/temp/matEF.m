@@ -1,5 +1,6 @@
-function [M, K, Ktheta, S0, S1] = matEF(maillage)
+function [M, K, Ktheta, S0, S1] = matEF(varargin)
 % MATEF Assemblage des matrices elements finis.
+maillage = varargin{1};
 
 II = zeros(maillage.numTriangles*9,1);
 JJ = zeros(maillage.numTriangles*9,1);
@@ -19,7 +20,7 @@ for t = 1:maillage.numTriangles
     S3 = maillage.points(maillage.triangles(t,3),1:2);
 
     % calcul des matrices elementaires du triangle t
-    [Mloc, Kloc, KTloc] = mat_elem(S1, S2, S3);
+    [Mloc, Kloc, KTloc] = mat_elem(S1, S2, S3, varargin{2:end});
 
     index = (9*(t-1)+1):(9*(t-1)+9);
     II(index) = maillage.triangles(t,index_II);

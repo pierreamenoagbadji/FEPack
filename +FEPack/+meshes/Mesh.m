@@ -116,6 +116,68 @@ classdef Mesh < FEPack.FEPackObject
 
     end
 
+    % %> @brief restrict_to()
+    % function meshRes = restrict_to(mesh, dom)
+    %
+    %   meshRes.dimension = dom.dimension;
+    %   meshRes.numEdgeNodes = mesh.numEdgeNodes;
+    %   meshRes.numPoints = dom.numPoints;
+    %   meshRes.points = mesh.nodes(dom.IdPoints, :);
+    %
+    %   numSegments = 0;
+    %
+    %   %> @brief Matrix that contains the definition of the segments. The k-th
+    %   %> segment is represented by the k-th line. Each line contains the indices
+    %   %> of the nodes that form the segment
+    %   segments = [];
+    %
+    %   %> @brief Number of triangles
+    %   %> NOTE: a triangle might be a volumic or surfacic entity depending on
+    %   %> the dimension
+    %   numTriangles = 0;
+    %
+    %   %> @brief Matrix that contains the definition of the triangle. The k-th
+    %   %> triangle is represented by the k-th line. Each line contains the indices
+    %   %> of its vertices
+    %   triangles = [];
+    %
+    %   %> @brief Number of tetrahedra
+    %   numTetrahedra = 0;
+    %
+    %   %> @brief Matrix that contains the definition of the tetrahedra. The k-th
+    %   %> tetrahedra is represented by the k-th line. Each line contains the
+    %   %> indices of its vertices
+    %   tetrahedra = [];
+    %
+    %   %> @brief Number of corners (2^dimension)
+    %   numCorners = 0;
+    %
+    %   %> @brief Indices of the corners
+    %   corners = [];
+    %
+    %   %> @brief List of domains
+    %   domains = [];
+    %
+    %   %> @brief References for the mesh points. Allows one to isolate the edge
+    %   %> points, the interior points, and the corners
+    %   refPoints = [];
+    %
+    %   %> @brief References for edge segments
+    %   refSegments = [];
+    %
+    %   %> @brief References for face triangles
+    %   refTriangles = [];
+    %
+    %   %> @brief References for tetrahedra
+    %   refTetrahedra = [];
+    %
+    %   %> @brief As the meshes are periodic, these vectors map the boundary points
+    %   %> along the x, y, z boundaries
+    %   maps = {};
+    %
+    %
+    % end
+
   end
 
 end

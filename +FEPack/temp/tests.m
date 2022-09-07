@@ -1,139 +1,254 @@
-% clear; clc;
-% import FEPack.*
-% FE = pdes.PDEObject;
-% smesh = meshes.MeshSegment;
-%
-% % C = sparse([1, 1], [1, smesh.numPoints], 2, 2, smesh.numPoints);
-% % b = sparse([1, 1, 1], [1, 3, 6], [0, 0.5, 3], 2, 6);
-% % ecs = FE.projection_matrix_from_constraints(C, b);
-% % spy(ecs.P);
+% % % %%
+% % % clear; clc;
+% % % import FEPack.*
+% % % u = pdes.PDEObject;
+% % % rmesh = meshes.MeshRectangle;
+% % %
+% % %
+% % % xmin = rmesh.domain('xmin');
+% % % xmax = rmesh.domain('xmax');
+% % % ymin = rmesh.domain('ymin');
+% % % ymax = rmesh.domain('ymax');
+% % %
+% % % %
+% % % % ecs = assignEcs((u|ymin), sparse(ymin.numPoints, 1)) &...
+% % % %       assignEcs((u|ymax), sparse(ymax.numPoints, 1)) &...
+% % % %       assignEcs((u|xmax) - (u|xmin), sparse(xmin.numPoints, 1));
+% % % ecs = assignEcs((u|xmax) - (u|xmin), sparse(xmin.numPoints, 1)) &...
+% % %       assignEcs((u|ymax) - (u|ymin), sparse(ymin.numPoints, 1));
+% % %
+% % % ecs.applyEcs;
+% % %
+% % % % MM = FE.global_matrix('volumic', rmesh, 0, 0);
+% % % F = @(P) [cos(2*pi*P(:, 1)), sin(2*pi*P(:, 2)); zeros(size(P, 1), 1), exp(P(:, 1) + P(:, 2))];
+% % % MM = u.intg_DxU_V('volumic', rmesh, @(x) exp(x(:, 1)));
+% % % display(MM)
+% % % % % display(FEPack.pdes.PDEObject.U_V_elem(2, [0, 0; 1, 0; 0, 1]));
+% % % % Myx = FE.mat_elem(2, [0, 0, 0; 1, 0, 0; 0, 1, 0], 1, 3);
+% % % % Myy = FE.mat_elem(2, [0, 0, 0; 1, 0, 0; 0, 1, 0], 2, 2);
+% % % % display(Myx)
+% % %
+% % % % MM = FE.assembleFEmatrices(rmesh, @(P) FEPack.pdes.PDEObject.U_V_elem(2, P), 'volumic');
+% % % % display(MM);
+% % %
+% % % %%
+% % % clear; clc;
+% % % import FEPack.*
+% % % u = pdes.PDEObject;
+% % % cmesh = meshes.MeshCuboid(0);
+% % % % MM = u.intg_U_V('volumic', cmesh, @(x) exp(x(:, 1)));
+% % % % clc;
+% % % %%
+% % % N = 32;
+% % % points = rand(N, 2);
+% % % points(randi(N, 8, 1), 1) = 0.5;
+% % %
+% % % [~, cleX] = sort(points(:, 1));
+% % % [~, cleY] = sort(points(cleX, 2));
+% % % [~, cle] = sortrows(points, [1 2]);
+% % % sorted_points = points(cle, :);
+% % %
+% % % plot([0, 0], [1, 0], 'k'); hold on;
+% % % plot([1, 0], [1, 1], 'k');
+% % % plot([1, 1], [0, 1], 'k');
+% % % plot([0, 1], [0, 0], 'k');
+% % % plot(points(:, 1), points(:, 2), 'o', 'MarkerSize', 6, 'MarkerFaceColor', 'r', 'MarkerEdgeColor', 'r');
+% % %
+% % % for i = 1:N
+% % %   plot(sorted_points(i, 1), sorted_points(i, 2), 'o', 'MarkerSize', 6, 'MarkerFaceColor', 'b', 'MarkerEdgeColor', 'b');
+% % %   pause;
+% % % end
+% % %
+% % %
+% % %
+% % %
+% % %
+% % %
 % %
-%
-% MM = FE.intg_U_V('xmax', smesh, @(x) exp(x(:, 1)));
-% display(MM);
-%
-% % display(FE.assembleFEmatrices(smesh, @(P) FE.U_V_loc(0, P), 'xmax'));
-%
-%
-% %%
+% %
+% %
+% %
+% % %%
 % clear; clc;
 % import FEPack.*
-% u = pdes.PDEObject;
-% rmesh = meshes.MeshRectangle;
 %
+% N = 8;
+% O = [0.38; 0.6]; r = 0.35;
+% f = @(x) FEPack.tools.cutoff(sqrt((x(:, 1)-O(1)).^2 + (x(:, 2)-O(2)).^2), -r, r, 0.5, 1e-8);% sin(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2));
+% rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
+% figure;
+% trisurf(rmesh.triangles, rmesh.points(:, 1), rmesh.points(:, 2), f(rmesh.points));
+% view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+% % pause;
 %
 % xmin = rmesh.domain('xmin');
 % xmax = rmesh.domain('xmax');
 % ymin = rmesh.domain('ymin');
 % ymax = rmesh.domain('ymax');
+% cell = rmesh.domain('volumic');
 %
-% %
-% % ecs = assignEcs((u|ymin), sparse(ymin.numPoints, 1)) &...
-% %       assignEcs((u|ymax), sparse(ymax.numPoints, 1)) &...
-% %       assignEcs((u|xmax) - (u|xmin), sparse(xmin.numPoints, 1));
-% ecs = assignEcs((u|xmax) - (u|xmin), sparse(xmin.numPoints, 1)) &...
-%       assignEcs((u|ymax) - (u|ymin), sparse(ymin.numPoints, 1));
+% u = pdes.PDEObject;
+% MM = pdes.Form.intg_U_V(cell);
 %
+% matfun = @(P) [2+cos(P(:, 1)), 3+sin(P(:, 2)); exp(P(:, 1)), 2+zeros(size(P, 1), 1)];
+%
+% KK = pdes.Form.intg_gradU_gradV(cell, matfun);
+% [MMr, KKr] = matEF(rmesh);
+% AA = KK + MM;
+% LL = MM * f(rmesh.points);
+%
+% % ecs = assignEcs((u|xmin), 1.0) & assignEcs((u|xmax), 1.0) & assignEcs((u|ymin), 1.0) & assignEcs((u|ymax), 1.0);
+% ecs = assignEcs((u|xmin) - (u|xmax), 0.0) & assignEcs((u|ymin) - (u|ymax), 0.0);
 % ecs.applyEcs;
 %
-% % MM = FE.global_matrix('volumic', rmesh, 0, 0);
-% F = @(P) [cos(2*pi*P(:, 1)), sin(2*pi*P(:, 2)); zeros(size(P, 1), 1), exp(P(:, 1) + P(:, 2))];
-% MM = u.intg_DxU_V('volumic', rmesh, @(x) exp(x(:, 1)));
-% display(MM)
-% % % display(FEPack.pdes.PDEObject.U_V_elem(2, [0, 0; 1, 0; 0, 1]));
-% % Myx = FE.mat_elem(2, [0, 0, 0; 1, 0, 0; 0, 1, 0], 1, 3);
-% % Myy = FE.mat_elem(2, [0, 0, 0; 1, 0, 0; 0, 1, 0], 2, 2);
-% % display(Myx)
+% % idInter = cell.points;
+% % idInter(unique([xmin.points; xmax.points; ymin.points; ymax.points])) = [];
+% % N0 = length(idInter);
+% % P0 = sparse((1:N0), idInter, 1, N0, rmesh.numPoints);
+% % ecs.P = P0;
 %
-% % MM = FE.assembleFEmatrices(rmesh, @(P) FEPack.pdes.PDEObject.U_V_elem(2, P), 'volumic');
-% % display(MM);
+% LL = LL - AA * ecs.b;
+%
+% AA0 = ecs.P * AA * ecs.P';
+% LL0 = ecs.P * LL;
+% U0 = AA0 \ LL0;
+%
+% U = ecs.P' * U0 + ecs.b;
+%
+% figure;
+% trisurf(rmesh.triangles, rmesh.points(:, 1), rmesh.points(:, 2), U);
+% view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+% set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+% %%
+% % clc;
+% % import FEPack.*
+% % u = pdes.PDEObject;
+% % P = rand(2, 3);
+% % % P = [0, 0; 1, 0; 0, 1];
+% % [MelA, KelA] = mat_elem(P(:, 1), P(:, 2), P(:, 3));
+% % MelB = u.mat_elem(P, 2, 2, [1 0 0], [1 0 0]);
+% % KelB = u.mat_elem(P, 2, 2, [0 1 0], [0 1 0]) + ...
+% %        u.mat_elem(P, 2, 2, [0 0 1], [0 0 1]);
+% %
+% % [max(max(MelA - MelB)), max(max(KelA - KelB))]
+% % %%
+% % clc;
+% % import FEPack.*
+% % u = pdes.PDEObject;
+% % P = rand(2, 4);
+% % P = [P; rand(1, 4)];
+% % u.mat_elem(P, 3, 3, [0 1 1], [0 1 1])
+%
+%
+% % % %%
+% % clear; clc;
+% % import FEPack.*
+% %
+% % N = 8;
+% % rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
+% % xmin = rmesh.domain('xmin');
+% % xmax = rmesh.domain('xmax');
+% % ymin = rmesh.domain('ymin');
+% % ymax = rmesh.domain('ymax');
+% % cell = rmesh.domain('volumic');
+% %
+% % sp = spaces.PeriodicLagrangeBasis(xmin);
+%
+% % u = pdes.PDEObject;
+% % % ecs = assignEcs((u|xmin), 1.0) & assignEcs((u|xmax), 1.0) & assignEcs((u|ymin), 1.0) & assignEcs((u|ymax), 1.0);
+% % ecs = assignEcs((u|xmin) - (u|xmax), 0.0) & assignEcs((u|ymin) - (u|ymax), 0.0);
+% % ecs.applyEcs;
+% % Q = ecs.P(:, xmin.IdPoints)
+%
+% %%
+% % x = linspace(0, 1, 8);
+% x = [0, sort(rand(1, 8-2)), 1];
+% plot([0, 0], [1 0]); hold on;
+% plot(x, 0, 'o', 'MarkerFaceColor', 'r');
+% ylim([-1 1]);
+%
+% y = mod(x + 0.25*sqrt(2), 1); y(end) = [];
+% for i = 1:length(y)
+%   plot(y(i), 0, 'o', 'MarkerFaceColor', 'b');
+%   pause;
+% end
+%
+% [~, I] = sort([x, y]);
+% % I = I(2:2:end)-length(x);
+% % for i = 1:length(y)
+% %   plot(y(I(i)), 0, 'o', 'MarkerFaceColor', 'b');
+% %   pause;
+% % end
 %
 % %%
 % clear; clc;
 % import FEPack.*
+%
+% N = 8;
+% rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
+% xmin = rmesh.domain('xmin');
+% xmax = rmesh.domain('xmax');
+% ymin = rmesh.domain('ymin');
+% ymax = rmesh.domain('ymax');
+% cell = rmesh.domain('volumic');
+%
+% sp = spaces.FourierBasis(xmin, [0 1]);
+%
 % u = pdes.PDEObject;
-% cmesh = meshes.MeshCuboid(0);
-% % MM = u.intg_U_V('volumic', cmesh, @(x) exp(x(:, 1)));
-% % clc;
-% %%
-% N = 32;
-% points = rand(N, 2);
-% points(randi(N, 8, 1), 1) = 0.5;
-%
-% [~, cleX] = sort(points(:, 1));
-% [~, cleY] = sort(points(cleX, 2));
-% [~, cle] = sortrows(points, [1 2]);
-% sorted_points = points(cle, :);
-%
-% plot([0, 0], [1, 0], 'k'); hold on;
-% plot([1, 0], [1, 1], 'k');
-% plot([1, 1], [0, 1], 'k');
-% plot([0, 1], [0, 0], 'k');
-% plot(points(:, 1), points(:, 2), 'o', 'MarkerSize', 6, 'MarkerFaceColor', 'r', 'MarkerEdgeColor', 'r');
-%
-% for i = 1:N
-%   plot(sorted_points(i, 1), sorted_points(i, 2), 'o', 'MarkerSize', 6, 'MarkerFaceColor', 'b', 'MarkerEdgeColor', 'b');
-%   pause;
-% end
-%
-%
-%
-%
-%
-%
+% fun = @(x) cos(2*pi*x);
+% sp.intg_shiftU_V([0 0.5])
 
-
-
-
-%%
 clear; clc;
 import FEPack.*
 
-N = 64;
-f = @(x) zeros(size(x, 1), 1);%sin(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2));
-
+N = 8;
 rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
 xmin = rmesh.domain('xmin');
 xmax = rmesh.domain('xmax');
 ymin = rmesh.domain('ymin');
 ymax = rmesh.domain('ymax');
 cell = rmesh.domain('volumic');
+u = pdes.PDEObject; v = dual(u);
+F = @(x) x(:, 1).^2 + x(:, 2).^4; % cos(2*pi*x(:, 1)); 
+Fr = @(x, y) F([x, y]);
+% G = @(x, y)
 
-u = pdes.PDEObject;
-MMa = u.intg_U_V(cell);
-KKa = u.intg_gradU_gradV(cell);
-[MM, KK] = matEF(rmesh);
-AA = KK + MM;
-LL = MM * f(rmesh.points);
+theta = pi/3;
+omega = 5 + 0.1i;
+et = [cos(theta) sin(theta)];
 
-ecs = assignEcs((u|xmin), 1.0) & assignEcs((u|xmax), 1.0) & assignEcs((u|ymin), 1.0) & assignEcs((u|ymax), 1.0);
-ecs.applyEcs;
+AA = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)) - omega*omega*id(u)*id(v));
+Kt = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)));
+KK = FEPack.pdes.Form.intg(cell, ((F*dx(u)) * dx(v)) + ((F*dy(u)) * dy(v)));
+[MMr, KKr, Ktr] = matEF(rmesh, Fr);
+[MM0, KK0, Kt0] = matEF(rmesh);
 
-idInter = cell.points;
-idInter(unique([xmin.points; xmax.points; ymin.points; ymax.points])) = [];
-N0 = length(idInter);
-P0 = sparse((1:N0), idInter, 1, N0, rmesh.numPoints);
-ecs.P = P0;
+AAr = Ktr - omega*omega*MMr;
+AA0 = Kt0 - omega*omega*MM0;
 
-LL = LL - AA * ecs.b;
+display(max(max(abs(AA - AAr))));
+%
+% P = 3*[rand(2, 3); zeros(1, 3)];
+% 
+% % plot([P(1, 1), P(1, 2)], [P(2, 1), P(2, 2)]); hold on;
+% % plot([P(1, 2), P(1, 3)], [P(2, 2), P(2, 3)]);
+% % plot([P(1, 1), P(1, 3)], [P(2, 1), P(2, 3)]);
+% 
+% % Yquad = mapToRel.A * Xquad + mapToRel.B; plot(Yquad(1, :), Yquad(2, :), '*');
+% 
+% F = @(x) x(:, 1).^2 + x(:, 2).^2;% cos(2*pi*x(:, 1));
+% Fr = @(x, y) F([x, y]);
+% 
+% Kel = FEPack.pdes.Form.mat_elem(P, 2, 2, [0 1 0 0], [0 1 0 0], F) +...
+%       FEPack.pdes.Form.mat_elem(P, 2, 2, [0 0 1 0], [0 0 1 0], F);
+% 
+% [Mel, Kelr] = mat_elem(P(1:2, 1), P(1:2, 2), P(1:2, 3), Fr);
+% display(max(max(abs(Kel - Kelr))));
 
-AA0 = ecs.P * AA * ecs.P';
-LL0 = ecs.P * LL;
-U0 = AA0 \ LL0;
-
-U = ecs.P' * U0 + ecs.b;
-
-figure;
-trisurf(rmesh.triangles, rmesh.points(:, 1), rmesh.points(:, 2), U);
-view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-% set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-%%
-
-P = rand(3, 2);
-% P = [0, 0; 1, 0; 0, 1];
-[MelA, KelA] = mat_elem(P(1, :)', P(2, :)', P(3, :)');
-MelB = u.mat_elem(2, [P, zeros(3, 1)], 0, 0);
-KelB = u.mat_elem(2, [P, zeros(3, 1)], 1, 1) + ...
-       u.mat_elem(2, [P, zeros(3, 1)], 2, 2);
-
-[max(max(MelA - MelB)), max(max(KelA - KelB))]
+% F = @(x) x(:, 1).^2;% cos(2*pi*x(:, 1));
+% quadRule1 = FEPack.tools.QuadratureObject.symetrical_Gauss_triangle(6);
+% I1 = quadRule1.weights * F(quadRule1.points.')
+% 
+% quadRule2.points = [1/3 1/5 1/5 3/5; 1/3 1/5 3/5 1/5];
+% quadRule2.weights = [-9/32, 25/96, 25/96, 25/96];
+% I2 = quadRule2.weights * F(quadRule2.points.')

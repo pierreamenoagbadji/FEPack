@@ -104,6 +104,7 @@ classdef MeshCuboid < FEPack.meshes.Mesh
       end
 
       % Construct maps between edge nodes and subdomains
+      % The domains are ordered as : xmax - xmin - ymax - ymin - zmax - zmin
       Icoo = [2, 3; 2, 3; 3, 1; 3, 1; 1, 2; 1, 2];
       for idom = 1:6
         % Maps between edge nodes

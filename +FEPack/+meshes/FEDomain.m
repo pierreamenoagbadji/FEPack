@@ -5,7 +5,7 @@
 %>
 % =========================================================================== %
 classdef FEDomain < FEPack.FEPackObject
-  % FEPack.meshes.Mesh < FEPack.FEPackObject
+  % FEPack.meshes.FEDomain < FEPack.FEPackObject
 
   properties (SetAccess = protected)
 
@@ -31,7 +31,7 @@ classdef FEDomain < FEPack.FEPackObject
     numPoints = 0;
 
     %> @brief Indices of the points composing the domain
-    points = [];
+    IdPoints = [];
 
     % %> @brief Indices of the segments composing the domain
     % segments = [];
@@ -43,7 +43,7 @@ classdef FEDomain < FEPack.FEPackObject
 
   methods
 
-    function FEdom = FEDomain(mesh, domain_name, dimension, reference, points)
+    function FEdom = FEDomain(mesh, domain_name, dimension, reference, IdPoints)
 
       FEdom.name = domain_name;
       FEdom.dimension = dimension;
@@ -64,13 +64,13 @@ classdef FEDomain < FEPack.FEPackObject
         FEdom.idelements = find(mesh.refTetrahedra == reference);
         FEdom.elements = mesh.tetrahedra(FEdom.idelements, :);
       end
-      FEdom.numElts = length(FEdom.elements);
+      FEdom.numElts = size(FEdom.elements, 1);
 
       if (nargin < 5)
-        points = unique(FEdom.elements);
+        IdPoints = unique(FEdom.elements);
       end
-      FEdom.points = points;
-      FEdom.numPoints = length(FEdom.points);
+      FEdom.IdPoints = IdPoints;
+      FEdom.numPoints = length(FEdom.IdPoints);
       % FEdom.points = find(mesh.refPoints == reference);
       % FEdom.segments = find(mesh.refSegments == reference);
       % FEdom.triangles = find(mesh.refTriangles == reference);

@@ -1,4 +1,4 @@
-function [Mloc, Kloc, KthetaLoc, Gloc1, Gloc2] = mat_elem(S1, S2, S3)
+function [Mloc, Kloc, KthetaLoc, Gloc1, Gloc2] = mat_elem(S1, S2, S3, mu, rho)
 % MAT_ELEM Matrices elementaires pour des EF de Lagrange P1
 %
 % SYNOPSIS [Mloc, Kloc, KthetaLoc] = mat_elem(S1, S2, S3, coeff, params)
@@ -28,9 +28,19 @@ function [Mloc, Kloc, KthetaLoc, Gloc1, Gloc2] = mat_elem(S1, S2, S3)
 %          Gauss-Lobatto
 % ========================================================================
 
-coeffs.mu  = @(x) 1.0;
-coeffs.rho = @(x) 1.0;
-opts = 'constant';
+if (nargin < 5)
+  coeffs.rho = @(x, y) 1.0;
+else
+  coeffs.rho = rho;
+end
+
+if (nargin < 5)
+  coeffs.mu  = @(x, y) 1.0;
+else
+  coeffs.mu = mu;
+end
+
+opts = 'variable'; % 'constant';
 
 
 % Coordonnees des sommets du triangle
@@ -50,7 +60,8 @@ norm = [y2 - y3, x3 - x2;...
         y1 - y2, x2 - x1];
 
 % Vecteur direction de coupe
-eT = [cos(2*pi); sin(2*pi)];
+t
+eT = [cos(theta); sin(theta)];
 
 % Integrales
 if strcmp(opts, 'constant')

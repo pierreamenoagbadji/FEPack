@@ -79,11 +79,6 @@ classdef MeshSegment < FEPack.meshes.Mesh
 
       end
 
-      % Make sure there are more than two nodes
-      if (numPoints < 2)
-        error('Il faut plus de 2 points pour générer un maillage.');
-      end
-
       % Properties of the mesh
       mesh.dimension = 1;
       mesh.numEdgeNodes = [1; 0; 0];
@@ -93,10 +88,11 @@ classdef MeshSegment < FEPack.meshes.Mesh
       mesh.segments = [(1:numPoints-1).', (2:numPoints).'];
       mesh.refPoints = [1; zeros(numPoints-2, 1); 2];
       mesh.refSegments = zeros(mesh.numSegments, 1);
-      mesh.maps{1} = 1;
-      mesh.maps{2} = numPoints;
+      mesh.maps{1} = numPoints;
+      mesh.maps{2} = 1;
+      numD = [2; 1]; % The domains are ordered as : xmax - xmin
       for idom = 1:2
-        mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 0, idom, mesh.maps{idom});
+        mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{numD(idom)}, 0, idom, mesh.maps{idom});
       end
       mesh.domains{3} = FEPack.meshes.FEDomain(mesh, 'volumic', 1, 0);
 
