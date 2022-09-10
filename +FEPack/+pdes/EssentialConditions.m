@@ -12,7 +12,7 @@ classdef EssentialConditions < FEPack.FEPackObject
     C = [];
 
     %> @brief Right-hand side
-    rhs = [];
+    rhs = sparse(0, 1);
 
     %> @brief Projection matrix
     P = [];
@@ -44,8 +44,28 @@ classdef EssentialConditions < FEPack.FEPackObject
     end
 
     function ecsRes = and(ecsA, ecsB)
+      % AND is for concatenating right-hand sides. Assume ecsA and ecsB have
+      % respectively nA and nB rhs:
+      %    1. If nA = 1, then ecsRes will have nB rhs.
+      %    2. If nB = 1, then ecsRes will have nA rhs.
+      %    3. If neither of nA nor nB is equal to 1, then nA and nB have to
+      %       be equal, in which case, ecsRes will have nA = nB rhs.
       ecsRes = copy(ecsA);
       ecsRes.C = [ecsA.C; ecsB.C];
+
+      if (size(ecsA.rhs, 2) == 1)
+        % Case 1.
+        ecsA.rhs = ecsA.rhs * ones(1, size(ecsB.rhs, 2));
+      elseif (size(ecsB.rhs, 2) == 1)
+        % Case 2.
+        ecsB.rhs = ecsB.rhs * ones(1, size(ecsA.rhs, 2));
+      elseif (size(ecsA.rhs, 2) ~= size(ecsB.rhs, 2))
+        % Case 3. Make sure ecsA and ecsB have the same number of rhs
+        error(['Pour AND (&), les conditions à concaténer doivent avoir ',...
+               'le même nombre de données. Pour réunir des conditions, ',...
+               'utiliser plutôt OR (|).']);
+      end
+
       ecsRes.rhs = [ecsA.rhs; ecsB.rhs];
     end
 

@@ -68,10 +68,10 @@
 % %
 % %
 % %
-% % %%
+% %%
 % clear; clc;
 % import FEPack.*
-%
+% 
 % N = 8;
 % O = [0.38; 0.6]; r = 0.35;
 % f = @(x) FEPack.tools.cutoff(sqrt((x(:, 1)-O(1)).^2 + (x(:, 2)-O(2)).^2), -r, r, 0.5, 1e-8);% sin(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2));
@@ -80,46 +80,46 @@
 % trisurf(rmesh.triangles, rmesh.points(:, 1), rmesh.points(:, 2), f(rmesh.points));
 % view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
 % % pause;
-%
+% 
 % xmin = rmesh.domain('xmin');
 % xmax = rmesh.domain('xmax');
 % ymin = rmesh.domain('ymin');
 % ymax = rmesh.domain('ymax');
 % cell = rmesh.domain('volumic');
-%
-% u = pdes.PDEObject;
+% 
+% u = pdes.PDEObject; v = dual(u);
 % MM = pdes.Form.intg_U_V(cell);
-%
+% 
 % matfun = @(P) [2+cos(P(:, 1)), 3+sin(P(:, 2)); exp(P(:, 1)), 2+zeros(size(P, 1), 1)];
-%
+% 
 % KK = pdes.Form.intg_gradU_gradV(cell, matfun);
-% [MMr, KKr] = matEF(rmesh);
+% % [MMr, KKr] = matEF(rmesh);
 % AA = KK + MM;
 % LL = MM * f(rmesh.points);
-%
+% 
 % % ecs = assignEcs((u|xmin), 1.0) & assignEcs((u|xmax), 1.0) & assignEcs((u|ymin), 1.0) & assignEcs((u|ymax), 1.0);
 % ecs = assignEcs((u|xmin) - (u|xmax), 0.0) & assignEcs((u|ymin) - (u|ymax), 0.0);
 % ecs.applyEcs;
-%
+% 
 % % idInter = cell.points;
 % % idInter(unique([xmin.points; xmax.points; ymin.points; ymax.points])) = [];
 % % N0 = length(idInter);
 % % P0 = sparse((1:N0), idInter, 1, N0, rmesh.numPoints);
 % % ecs.P = P0;
-%
+% 
 % LL = LL - AA * ecs.b;
-%
+% 
 % AA0 = ecs.P * AA * ecs.P';
 % LL0 = ecs.P * LL;
 % U0 = AA0 \ LL0;
-%
+% 
 % U = ecs.P' * U0 + ecs.b;
-%
+% 
 % figure;
 % trisurf(rmesh.triangles, rmesh.points(:, 1), rmesh.points(:, 2), U);
 % view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
 % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-% %%
+%%
 % % clc;
 % % import FEPack.*
 % % u = pdes.PDEObject;
@@ -198,41 +198,57 @@
 % fun = @(x) cos(2*pi*x);
 % sp.intg_shiftU_V([0 0.5])
 
-% clear; clc;
-% import FEPack.*
-%
-% N = 8;
-% rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
-% xmin = rmesh.domain('xmin');
-% xmax = rmesh.domain('xmax');
-% ymin = rmesh.domain('ymin');
-% ymax = rmesh.domain('ymax');
-% cell = rmesh.domain('volumic');
-% u = pdes.PDEObject; v = dual(u);
-% F = @(x) cos(2*pi*x(:, 1)); Fr = @(x, y) F([x, y]);
-% % G = @(x, y)
-%
-% theta = pi/3;
-% omega = 5 + 0.1i;
-% et = [cos(theta) sin(theta)];
-%
-% AA = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)) - omega*omega*id(u)*id(v));
-% Kt = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)));
-% KK = FEPack.pdes.Form.intg(cell, ((F*dx(u)) * dx(v)) + ((F*dy(u)) * dy(v)));
-% [MMr, KKr, Ktr] = matEF(rmesh, Fr);
-% [MM0, KK0, Kt0] = matEF(rmesh);
-%
-% AAr = Ktr - omega*omega*MMr;
-% AA0 = Kt0 - omega*omega*MM0;
-%
-% display(max(max(abs(KK - KKr))));
+clear; clc;
+import FEPack.*
 
-P = 3*[rand(2, 3); zeros(1, 3)];
-F = @(x) cos(2*pi*x(:, 1)); 
+N = 8;
+rmesh = meshes.MeshRectangle(1, [0, 1], [0, 1], N, N);
+xmin = rmesh.domain('xmin');
+xmax = rmesh.domain('xmax');
+ymin = rmesh.domain('ymin');
+ymax = rmesh.domain('ymax');
+cell = rmesh.domain('volumic');
+u = pdes.PDEObject; v = dual(u);
+F = @(x) x(:, 1).^2 + x(:, 2).^4; % cos(2*pi*x(:, 1)); 
 Fr = @(x, y) F([x, y]);
+% G = @(x, y)
 
-Kel = FEPack.pdes.Form.mat_elem(P, 2, 2, [0 1 0 0], [0 1 0 0], F) +...
-      FEPack.pdes.Form.mat_elem(P, 2, 2, [0 0 1 0], [0 0 1 0], F);
+theta = pi/3;
+omega = 5 + 0.1i;
+et = [cos(theta) sin(theta)];
 
-[Mel, Kelr] = mat_elem(P(1:2, 1), P(1:2, 2), P(1:2, 3), Fr);
-display(max(max(abs(Kel - Kelr))));
+AA = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)) - omega*omega*id(u)*id(v));
+Kt = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)));
+KK = FEPack.pdes.Form.intg(cell, ((F*dx(u)) * dx(v)) + ((F*dy(u)) * dy(v)));
+[MMr, KKr, Ktr] = matEF(rmesh, Fr);
+[MM0, KK0, Kt0] = matEF(rmesh);
+
+AAr = Ktr - omega*omega*MMr;
+AA0 = Kt0 - omega*omega*MM0;
+
+display(max(max(abs(AA - AAr))));
+%
+% P = 3*[rand(2, 3); zeros(1, 3)];
+% 
+% % plot([P(1, 1), P(1, 2)], [P(2, 1), P(2, 2)]); hold on;
+% % plot([P(1, 2), P(1, 3)], [P(2, 2), P(2, 3)]);
+% % plot([P(1, 1), P(1, 3)], [P(2, 1), P(2, 3)]);
+% 
+% % Yquad = mapToRel.A * Xquad + mapToRel.B; plot(Yquad(1, :), Yquad(2, :), '*');
+% 
+% F = @(x) x(:, 1).^2 + x(:, 2).^2;% cos(2*pi*x(:, 1));
+% Fr = @(x, y) F([x, y]);
+% 
+% Kel = FEPack.pdes.Form.mat_elem(P, 2, 2, [0 1 0 0], [0 1 0 0], F) +...
+%       FEPack.pdes.Form.mat_elem(P, 2, 2, [0 0 1 0], [0 0 1 0], F);
+% 
+% [Mel, Kelr] = mat_elem(P(1:2, 1), P(1:2, 2), P(1:2, 3), Fr);
+% display(max(max(abs(Kel - Kelr))));
+
+% F = @(x) x(:, 1).^2;% cos(2*pi*x(:, 1));
+% quadRule1 = FEPack.tools.QuadratureObject.symetrical_Gauss_triangle(6);
+% I1 = quadRule1.weights * F(quadRule1.points.')
+% 
+% quadRule2.points = [1/3 1/5 1/5 3/5; 1/3 1/5 3/5 1/5];
+% quadRule2.weights = [-9/32, 25/96, 25/96, 25/96];
+% I2 = quadRule2.weights * F(quadRule2.points.')

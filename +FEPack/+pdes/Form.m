@@ -408,24 +408,28 @@ classdef Form < FEPack.FEPackObject
       if isa(Tmat, 'function_handle')
 
         % The operator is a multiplication by a function
-        AA = intg_U_V(domain, Tmat);
+        AA = FEPack.pdes.Form.intg_U_V(domain, Tmat);
 
       elseif (length(Tmat) == 1)
 
         % Trivial case of multiplication by a scalar
-        AA = intg_U_V(domain);
+        AA = Tmat * FEPack.pdes.Form.intg_U_V(domain);
+        
+      elseif ~(size(Tmat) == spectralB.numBasis)
+
+        error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de base spectrale.');
 
       else
 
         if strcmpi(representation, 'projection')
 
           % Deduce the weakly evaluated matrix from the projected one
-          Tmat = spectralB.massmatInv * Tmat;
+          Tmat = spectralB.massmat * Tmat;
 
         elseif ~strcmpi(representation, 'weak evaluation')
 
           % Only 'projection' and 'weak evaluation' are allowed
-          error(['La variable evaluation ne peut valoir que ''weak',...
+          error(['La variable evaluation ne peut valoir que ''weak ',...
                  'evaluation'' ou ''projection''.']);
 
         end
@@ -438,7 +442,10 @@ classdef Form < FEPack.FEPackObject
 
         % Deduce the matrix
         Proj = spectralB.massmatInv * spectralB.projmat.';
-        AA = Proj' * Tmat * Proj;
+
+        N = domain.mesh.numPoints;
+        AA = sparse(N, N);
+        AA(domain.IdPoints, domain.IdPoints) = Proj' * Tmat * Proj;
 
       end
 
@@ -448,7 +455,7 @@ classdef Form < FEPack.FEPackObject
       % function AA = intg(domain, aLF, quadRule)
       %
       % Compute a matrix or a vector associated to a bilinear or linear form.
-      
+
       aLF = varargin{2};
 
       if (isa(aLF, 'FEPack.pdes.LinOperator') && aLF.is_dual)

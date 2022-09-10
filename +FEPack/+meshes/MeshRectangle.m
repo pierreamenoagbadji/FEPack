@@ -74,7 +74,7 @@ classdef MeshRectangle < FEPack.meshes.Mesh
 
       % Use Gmsh
       system([FEPack.FEPackObject.pathBash, '/gmsh-4.10.5-Linux64/bin/gmsh FEPackmesh.geo -2']);
-      FEPackmesh;
+      FEPack.FEPackmesh;
 
       % Construct the mesh
       mesh.dimension = 2;

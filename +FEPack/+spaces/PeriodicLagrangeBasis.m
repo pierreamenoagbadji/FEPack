@@ -47,6 +47,7 @@ classdef PeriodicLagrangeBasis < FEPack.spaces.SpectralBasis
       % Set parameters
       % //////////////
       sp@FEPack.spaces.SpectralBasis(domain, phis, size(phis, 2));
+      sp.is_interpolated = 1;
       sp.computeBasisMatrices(0);
 
     end

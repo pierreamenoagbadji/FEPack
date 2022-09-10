@@ -70,16 +70,15 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
       sp.FourierIds.Z = (-maxId(3):maxId(3)); dz = length(sp.FourierIds.Z);
 
       sp.numBasis = dx * dy * dz;
-      sp.is_interpolated = 1;
+      sp.is_interpolated = 0;
       sp.phis = @(P, n) FEPack.spaces.FourierBasis.FourierBasisFun(P, n, sp.FourierIds.X, sp.FourierIds.Y, sp.FourierIds.Z);
 
       sp.massmat = speye(sp.numBasis);
-      sp.massmatInv = speye(sp.numBasis);
 
       % Compute projection matrix
       if (~fine_evaluation)
 
-        MM = FEPack.pdes.PDEObject.intg_U_V(sp.domain);
+        MM = FEPack.pdes.Form.intg_U_V(sp.domain);
         mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
         phis_mat = sp.phis(sp.domain.mesh.points(sp.domain.IdPoints, :), 1:sp.numBasis);
 
@@ -91,13 +90,16 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
         for idK = 1:sp.numBasis
 
-          MM = FEPack.pdes.PDEObject.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
+          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
           mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
           sp.projmat(:, idK) = mm * ones(sp.domain.numPoints, 1);
 
         end
 
       end
+
+      % FE-to-spectral matrix
+      sp.FE_to_spectral = sp.projmat.';
 
     end
 
@@ -134,11 +136,11 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
       tau = [tau(:).', zeros(1, 3 - Ltau)];
 
       if (nargin < 3)
-        
+
         % When no symbol is provided, it is chosen equal to 1 by default,
         % in which case the expression of the matrix is simplified.
         AA = diag(sp.phis(tau, (1:sp.numBasis)));
-        
+
       else
 
         fun = varargin{3};

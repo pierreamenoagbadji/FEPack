@@ -23,13 +23,18 @@ classdef SpectralBasis < FEPack.FEPackObject
     phis = [];
 
     %> @brief L2 projection matrix onto P1 Lagrange FE spaces
+    %> projmat_{i, k} = <w_i, phi_k>_L2, where w_j are Lagrange basis functions
+    %> and phi_k are the spectral basis functions
     projmat = [];
 
     %> @brief Mass matrix
     massmat = [];
 
-    %> @brief Inverse of mass matrix
-    massmatInv = [];
+    %> @brief FE-to-Spectral matrix. If the FE components (phi(x1),...,phi(xN))
+    %> of a function are stored in \vec{\phi}, then FEtoSp * \vec{\phi} returns
+    %> the components of its projection in the spectral base.
+    %> FE_to_spectral = massmat \ projmat.'
+    FE_to_spectral = [];
 
   end
 
@@ -94,13 +99,13 @@ classdef SpectralBasis < FEPack.FEPackObject
 
       if (fine_evaluation)
         warning('on');
-        warning('Attention : lmass_mat''évaluation précise est plus coûteuse et souvent non-nécessaire');
+        warning('Attention : l''évaluation précise est plus coûteuse et souvent non-nécessaire');
       end
 
       % Set matrices
       if (~fine_evaluation || sp.is_interpolated)
 
-        MM = FEPack.pdes.PDEObject.intg_U_V(sp.domain);
+        MM = FEPack.pdes.Form.intg_U_V(sp.domain);
         mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
 
         if (sp.is_interpolated)
@@ -119,13 +124,13 @@ classdef SpectralBasis < FEPack.FEPackObject
 
         for idK = 1:sp.numBasis
 
-          MM = FEPack.pdes.PDEObject.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
+          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
           mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
           sp.projmat(:, idK) = mm * ones(sp.domain.numPoints, 1);
 
           for idL = 1:sp.numBasis
 
-            NN = FEPack.pdes.PDEObject.intg_U_V(sp.domain, @(x) sp.phis(x, idL) .* conj(sp.phis(x, idK)));
+            NN = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idL) .* conj(sp.phis(x, idK)));
             nn = NN(sp.domain.IdPoints, sp.domain.IdPoints);
             sp.massmat(idK, idL) = ones(1, sp.domain.numPoints) * nn * ones(sp.domain.numPoints, 1);
 
@@ -135,10 +140,11 @@ classdef SpectralBasis < FEPack.FEPackObject
 
       end
 
-      sp.massmatInv = sp.massmat \ eye(sp.numBasis);
+      % FE-to-spectral matrix
+      sp.FE_to_spectral = sp.massmat \ sp.projmat.';
 
     end
-    
+
   end
 
 end

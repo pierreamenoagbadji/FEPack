@@ -50,8 +50,11 @@ classdef LinOperator < FEPack.FEPackObject
 
         % Product of an operator and a scalar
         res = copy(rhs);
-        numL = size(lhs, 2);
-        lhs = [lhs, zeros(size(lhs, 1), size(rhs.alpha, 1)-numL)];
+        if (max(size(lhs)) ~= 1)
+          % If lhs is not a scalar
+          numL = size(lhs, 2);
+          lhs = [lhs, zeros(size(lhs, 1), size(rhs.alpha, 1)-numL)];
+        end
         res.alpha = lhs * rhs.alpha;
 
       elseif isa(lhs, 'FEPack.pdes.LinOperator')
@@ -63,7 +66,7 @@ classdef LinOperator < FEPack.FEPackObject
         if (~rhs.is_dual)
           error('L''opérateur de droite doit être appliqué à une fonction test.');
         end
-
+        
         res = FEPack.pdes.Form;
         res.alpha_u = lhs.alpha;
         res.alpha_v = rhs.alpha;
