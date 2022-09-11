@@ -207,26 +207,29 @@ xmin = rmesh.domain('xmin');
 xmax = rmesh.domain('xmax');
 ymin = rmesh.domain('ymin');
 ymax = rmesh.domain('ymax');
-cell = rmesh.domain('volumic');
+cellule = rmesh.domain('volumic');
 u = pdes.PDEObject; v = dual(u);
 F = @(x) x(:, 1).^2 + x(:, 2).^4; % cos(2*pi*x(:, 1)); 
 Fr = @(x, y) F([x, y]);
 % G = @(x, y)
 
-theta = pi/3;
-omega = 5 + 0.1i;
-et = [cos(theta) sin(theta)];
-
-AA = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)) - omega*omega*id(u)*id(v));
-Kt = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)));
-KK = FEPack.pdes.Form.intg(cell, ((F*dx(u)) * dx(v)) + ((F*dy(u)) * dy(v)));
-[MMr, KKr, Ktr] = matEF(rmesh, Fr);
+%%
+% FEPack.pdes.Form.intg(cellule, grad(u)*grad(v))
+% theta = pi/3;
+% omega = 5 + 0.1i;
+% et = [cos(theta) sin(theta)];
+% 
+% AA = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)) - omega*omega*id(u)*id(v));
+% Kt = FEPack.pdes.Form.intg(cell, (F*(et * grad(u))) * (et * grad(v)));
+% KK = FEPack.pdes.Form.intg(cell, ((F*dx(u)) * dx(v)) + ((F*dy(u)) * dy(v)));
+% [MMr, KKr, Ktr] = matEF(rmesh, Fr);
 [MM0, KK0, Kt0] = matEF(rmesh);
-
-AAr = Ktr - omega*omega*MMr;
-AA0 = Kt0 - omega*omega*MM0;
-
-display(max(max(abs(AA - AAr))));
+max(max(abs(MM0 + KK0 - FEPack.pdes.Form.intg(cellule, grad(u)*grad(v) + id(u)*id(v)))))
+% 
+% AAr = Ktr - omega*omega*MMr;
+% AA0 = Kt0 - omega*omega*MM0;
+% 
+% display(max(max(abs(AA - AAr))));
 %
 % P = 3*[rand(2, 3); zeros(1, 3)];
 % 

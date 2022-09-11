@@ -10,7 +10,7 @@ coInf = 2;
 mu = @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
 rho = @(x) 1 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
 
-N = 32;
+N = 128;
 BB = [0, 1; 0, 1]; BB(coInf, 2) = orientation;
 mesh = meshes.MeshRectangle(1, BB(1, :), BB(2, :), N, N);
 cell = mesh.domain('volumic');
@@ -29,7 +29,7 @@ BoundaryStruct.basisfun1 = FEPack.spaces.PeriodicLagrangeBasis(Sigma1);
 % BoundaryStruct.basisfun.computeBasisMatrices(0);
 
 Nb = BoundaryStruct.basisfun0.numBasis;
-BoundaryStruct.BCdu = 1.0;
+BoundaryStruct.BCdu = 0.0;
 BoundaryStruct.BCu = 1.0;
 BoundaryStruct.representation = 'projection';
 BoundaryStruct.phi = @(x) exp(2i*pi*x(:, 1));%(size(x, 1), 1);

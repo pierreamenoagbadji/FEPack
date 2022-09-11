@@ -45,16 +45,14 @@ classdef PDEObject < FEPack.FEPackObject
       op.alpha = [0 0 0 1];
     end
 
-    function op = grad(u) % gradient
+    function op = grad(u)   % gradient
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
       op.alpha = [0 1 0 0; 0 0 1 0; 0 0 0 1];
-      op.fun = @(x) kron(eye(3), ones(size(x, 1), 1));
     end
 
-    function op = gradDir(u, vec) % directional gradient
+    function op = gradDir(u, vec)   % directional gradient
       op = vec * grad(u);
-      op.fun = @(x) kron(eye(size(vec, 1)), ones(size(x, 1), 1));
     end
 
     % For essential conditions

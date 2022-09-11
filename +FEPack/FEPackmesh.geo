@@ -6,7 +6,7 @@ x1 = 0.00000000; y1 = 0.00000000; z1 = 0.0;
 x2 = 1.00000000; y2 = 0.00000000; z2 = 0.0;
 x3 = 1.00000000; y3 = 1.00000000; z3 = 0.0;
 x4 = 0.00000000; y4 = 1.00000000; z4 = 0.0;
-numNodesX = 32; numNodesY = 32;
+numNodesX = 128; numNodesY = 128;
 
 domain_name = "rect";
 side_name1 = "ymin";

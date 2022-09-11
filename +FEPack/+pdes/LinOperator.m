@@ -16,7 +16,7 @@ classdef LinOperator < FEPack.FEPackObject
     alpha = [];
 
     %> @brief Multiplicative coefficient (for unknown)
-    fun = @(x) ones(size(x, 1), 1);
+    fun = [];
 
   end
 
@@ -40,18 +40,23 @@ classdef LinOperator < FEPack.FEPackObject
     end
 
     function res = mtimes(lhs, rhs)
+
       if isa(lhs, 'function_handle')
 
         % Product of function and operator
         res = copy(rhs);
-        res.fun = @(P) lhs(P) .* rhs.fun(P);
+        if isempty(rhs.fun)
+          res.fun = @(P) lhs(P);
+        else
+          res.fun = @(P) lhs(P) .* rhs.fun(P);
+        end
 
       elseif isa(lhs, 'double')
 
         % Product of an operator and a scalar
         res = copy(rhs);
         if (max(size(lhs)) ~= 1)
-          % If lhs is not a scalar
+          % If lhs is a vector or a matrix
           numL = size(lhs, 2);
           lhs = [lhs, zeros(size(lhs, 1), size(rhs.alpha, 1)-numL)];
         end
@@ -66,17 +71,18 @@ classdef LinOperator < FEPack.FEPackObject
         if (~rhs.is_dual)
           error('L''opérateur de droite doit être appliqué à une fonction test.');
         end
-        
+
         res = FEPack.pdes.Form;
-        res.alpha_u = lhs.alpha;
-        res.alpha_v = rhs.alpha;
-        res.fun = lhs.fun;
+        res.alpha_u = {lhs.alpha};
+        res.alpha_v = {rhs.alpha};
+        res.fun = {lhs.fun};
 
       else
 
         error('Vous tentez de multiplier une instance LinOperator par une classe incompatible.');
 
       end
+
     end
 
     function opRes = uminus(op)

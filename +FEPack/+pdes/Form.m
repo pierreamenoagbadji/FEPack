@@ -12,13 +12,13 @@ classdef Form < FEPack.FEPackObject
     is_bilinear = 1;
 
     %> @brief Coefficients associated to primal variable
-    alpha_u = [];
+    alpha_u = {[]};
 
     %> @brief Coefficients associated to dual variable
-    alpha_v = [];
+    alpha_v = {[]};
 
     %> @brief Multiplicative coefficient
-    fun = @(x) ones(size(x, 1), 1);
+    fun = {[]};
 
   end
 
@@ -105,7 +105,7 @@ classdef Form < FEPack.FEPackObject
       Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
       dP = size(P); P = [P; zeros(3-dP(1), dP(2))];
 
-      if (nargin < 6)
+      if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
         fun = @(x) ones(size(x, 1), 1);
       end
       if (nargin < 7)
@@ -240,6 +240,7 @@ classdef Form < FEPack.FEPackObject
       alpha_u = varargin{2};
       alpha_v = varargin{3};
       Ncoo = size(alpha_u, 1);
+      default_fun = (nargin < 4) || (nargin >= 4 && isempty(varargin{4}));
 
       % Computing tangential derivative on surfacic domain is not allowed (yet)
       if (((dom.dimension < dom.mesh.dimension) || (dom.dimension == 0)) && ...
@@ -249,19 +250,24 @@ classdef Form < FEPack.FEPackObject
                'erreur, revoir le calcul des matrices élémentaires.']);
       end
 
-      % Make sure alpha_u and alpha_v have compatible size
-      % More precisely, fun(P)*alpha_u and alpha_v must have the same size.
-      if (((nargin < 4) &&  min(size(alpha_u) ~= size(alpha_v))) ||...
-          ((nargin > 3) &&    ((size(varargin{4}([0, 0, 0]), 2) ~= size(alpha_u, 1)) ||...
-                               (size(varargin{4}([0, 0, 0]), 1) ~= size(alpha_v, 1)))))
-        error(['Les tailles de alpha_u, alpha_v, et de la sortie de fun ',...
-               'doivent être de telle sorte que fun(P)*alpha_u soit de la ',...
-               'même taille que alpha_v']);
+      % If no function has been specified, then fun = 1 by default.
+      % Make sure alpha_u and alpha_v have the same size.
+      if (default_fun && max(size(alpha_u) ~= size(alpha_v)))
+        error(['Aucune fonction n''a été spécifiée : alpha_u et alpha_v ',...
+               'doivent avoir la même taille.']);
+      end
+
+      % If a function is specified, fun(P)*alpha_u and alpha_v must have the same size.
+      if (~default_fun && ((size(varargin{4}([0, 0, 0]), 2) ~= size(alpha_u, 1)) ||...
+                           (size(varargin{4}([0, 0, 0]), 1) ~= size(alpha_v, 1))))
+        error(['Une fonction a été spécifiée : les tailles de alpha_u, ',...
+               'alpha_v, et de la sortie de fun doivent être de telle sorte ',...
+               'que fun(P)*alpha_u soit de la même taille que alpha_v']);
       end
 
       AA = sparse(0);
 
-      if (nargin < 4)
+      if (default_fun)
 
         % fun = 1 by default
         for Icoo = 1:Ncoo
@@ -414,7 +420,7 @@ classdef Form < FEPack.FEPackObject
 
         % Trivial case of multiplication by a scalar
         AA = Tmat * FEPack.pdes.Form.intg_U_V(domain);
-        
+
       elseif ~(size(Tmat) == spectralB.numBasis)
 
         error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de base spectrale.');
@@ -458,10 +464,15 @@ classdef Form < FEPack.FEPackObject
 
       aLF = varargin{2};
 
+      % Extract alpha_u and alpha_v
       if (isa(aLF, 'FEPack.pdes.LinOperator') && aLF.is_dual)
         % Linear form
-        alpha_u = [1 0 0 0];
         alpha_v = aLF.alpha;
+
+        alpha_u = cells(length(alpha_v), 1);
+        for idI = 1:length(alpha_v)
+          alpha_u{idI} = [1 0 0 0];
+        end
       elseif isa(aLF, 'FEPack.pdes.Form')
         % Bilinear form
         alpha_u = aLF.alpha_u;
@@ -473,7 +484,26 @@ classdef Form < FEPack.FEPackObject
                'linéaire)']);
       end
 
-      AA = FEPack.pdes.Form.global_matrix(varargin{1}, alpha_u, alpha_v, aLF.fun, varargin{3:end});
+      % Make sure alpha_u, alpha_v, and fun have the same number of cells
+      if (length(alpha_u) ~= length(alpha_v))
+        error('alpha_u et alpha_v doivent avoir le même nombre de cellules.');
+      end
+      if (length(alpha_u) ~= length(aLF.fun))
+        error('alpha_u et aLF.fun doivent avoir le même nombre de cellules.');
+      end
+      Nterms = length(alpha_u);
+
+      % Compute the global matrix
+      AA = sparse(0);
+      for idT = 1:Nterms
+
+        Au = alpha_u{idT};
+        Av = alpha_v{idT};
+        fun = aLF.fun{idT};
+
+        AA = AA + FEPack.pdes.Form.global_matrix(varargin{1}, Au, Av, fun, varargin{3:end});
+
+      end
 
       % For linear forms, deduce the vector
       if (isa(aLF, 'FEPack.pdes.LinOperator') && aLF.is_dual)
@@ -490,12 +520,14 @@ classdef Form < FEPack.FEPackObject
       aLFres = copy(aLFA);
       aLFres.alpha_u = [aLFA.alpha_u; aLFB.alpha_u];
       aLFres.alpha_v = [aLFA.alpha_v; aLFB.alpha_v];
-      aLFres.fun = @(P) blkdiag(aLFA.fun(P), aLFB.fun(P));
+      aLFres.fun = [aLFA.fun; aLFB.fun];
     end
 
     function aLFres = mtimes(T, aLF)
       aLFres = copy(aLF);
-      aLFres.fun = @(P) T * aLF.fun(P);
+      for idI = 1:length(aLF.alpha_u)
+        aLFres.alpha_u{idI} = T * aLF.alpha_u{idI};
+      end
     end
 
     function aLFres = uminus(aLF)
