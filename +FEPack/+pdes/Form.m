@@ -47,7 +47,7 @@ classdef Form < FEPack.FEPackObject
       N = size(P, 1);
       phis = zeros(N, d+1);
 
-      phis(:, 1) = alpha(1) * (1 - P * ones(d, 1)) - ones(N, d) * alpha(2:d+1)';
+      phis(:, 1) = alpha(1) * (1 - P * ones(d, 1)) - ones(N, d) * alpha(2:d+1).';
       phis(:, 2:end) = alpha(1) * P + kron(ones(N, 1), alpha(2:d+1));
 
     end
@@ -257,41 +257,77 @@ classdef Form < FEPack.FEPackObject
                'doivent avoir la même taille.']);
       end
 
-      % If a function is specified, fun(P)*alpha_u and alpha_v must have the same size.
-      if (~default_fun && ((size(varargin{4}([0, 0, 0]), 2) ~= size(alpha_u, 1)) ||...
-                           (size(varargin{4}([0, 0, 0]), 1) ~= size(alpha_v, 1))))
-        error(['Une fonction a été spécifiée : les tailles de alpha_u, ',...
-               'alpha_v, et de la sortie de fun doivent être de telle sorte ',...
-               'que fun(P)*alpha_u soit de la même taille que alpha_v']);
+      if (~default_fun)
+        is_scalar_fun = (length(varargin{4}([0, 0, 0])) == 1);
+
+        % If a function is specified, fun(P)*alpha_u and alpha_v must have the same size.
+        if (is_scalar_fun && max(size(alpha_u) ~= size(alpha_v)))
+          error(['Une fonction à valeurs scalaires a été spécifiée : ',...
+                 'alpha_u et alpha_v doivent avoir la même taille.']);
+        end
+
+        if ((~is_scalar_fun) &&...
+           ((size(varargin{4}([0, 0, 0]), 2) ~= size(alpha_u, 1)) ||...
+            (size(varargin{4}([0, 0, 0]), 1) ~= size(alpha_v, 1))))
+          error(['Une fonction a valeurs matricielles a été spécifiée : ', ...
+                 'fun(P)*alpha_u doit exister, et doit avoir la même taille ',...
+                 'que alpha_v.']);
+        end
       end
 
-      AA = sparse(0);
+      non_null_coeffs = @(Au, Av) (norm(Au, Inf) > eps) && (norm(Av, Inf) > eps);
+      N = dom.mesh.numPoints;
+      AA = sparse(N, N);
 
       if (default_fun)
 
         % fun = 1 by default
+        % //////////////////
         for Icoo = 1:Ncoo
-          Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :));
+          if non_null_coeffs(alpha_u(Icoo, :), alpha_v(Icoo, :))
+            % Add a contribution only if both the terms are non zero
+            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :));
 
-          AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
-        end
-
-      else
-
-        for Icoo = 1:Ncoo
-          for Jcoo = 1:Ncoo
-            % Extract the desired component of the matrix function
-            EI = @(P) sparse(1:size(P,1), ((Icoo-1)*size(P,1)+1):(Icoo*size(P,1)), 1, size(P,1), Ncoo*size(P,1));
-            EJ = @(P) sparse(Jcoo, 1, 1, Ncoo, 1);
-
-            % Elementary matrix
-            fun = @(P) EI(P) * varargin{4}(P) * EJ(P); % (Icoo, Jcoo)-component of matrix function
-            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), fun, varargin{5:end});
-
-            % Update the matrix
             AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
           end
         end
+
+      elseif (length(varargin{4}([0, 0, 0])) == 1)
+
+        % Function with scalar output
+        % ///////////////////////////
+        for Icoo = 1:Ncoo
+          % Add a contribution only if both the terms are non zero
+          if (non_null_coeffs(alpha_u(Icoo, :), alpha_v(Icoo, :)))
+            % Elementary matrix
+            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), varargin{4:end});
+
+            % Update the matrix
+            AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
+          end % if
+        end % for
+
+      else
+
+        % Function with matrix output
+        % ///////////////////////////
+        for Icoo = 1:Ncoo
+          % Add a contribution only if both the terms are non zero
+          if (non_null_coeffs(alpha_u(Icoo, :), alpha_v(Icoo, :)))
+            for Jcoo = 1:Ncoo
+              % Extract the desired component of the matrix function
+              EI = @(P) sparse(1:size(P,1), ((Icoo-1)*size(P,1)+1):(Icoo*size(P,1)), 1, size(P,1), Ncoo*size(P,1));
+              EJ = @(P) sparse(Jcoo, 1, 1, Ncoo, 1);
+
+              % Elementary matrix
+              fun = @(P) EI(P) * varargin{4}(P) * EJ(P); % (Icoo, Jcoo)-component of matrix function
+              Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), fun, varargin{5:end});
+
+              % Update the matrix
+              AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
+            end % for
+          end % if
+        end % for
 
       end
 
@@ -447,11 +483,9 @@ classdef Form < FEPack.FEPackObject
         end
 
         % Deduce the matrix
-        Proj = spectralB.massmatInv * spectralB.projmat.';
-
         N = domain.mesh.numPoints;
         AA = sparse(N, N);
-        AA(domain.IdPoints, domain.IdPoints) = Proj' * Tmat * Proj;
+        AA(domain.IdPoints, domain.IdPoints) = spectralB.FE_to_spectral' * Tmat * spectralB.FE_to_spectral;
 
       end
 
@@ -466,31 +500,38 @@ classdef Form < FEPack.FEPackObject
 
       % Extract alpha_u and alpha_v
       if (isa(aLF, 'FEPack.pdes.LinOperator') && aLF.is_dual)
+
         % Linear form
         alpha_v = aLF.alpha;
 
-        alpha_u = cells(length(alpha_v), 1);
+        alpha_u = cell(length(alpha_v), 1);
         for idI = 1:length(alpha_v)
           alpha_u{idI} = [1 0 0 0];
         end
+
       elseif isa(aLF, 'FEPack.pdes.Form')
+
         % Bilinear form
         alpha_u = aLF.alpha_u;
         alpha_v = aLF.alpha_v;
+
+        % Make sure alpha_u, alpha_v, and fun have the same number of cells
+        if (length(alpha_u) ~= length(alpha_v))
+          error('alpha_u et alpha_v doivent avoir le même nombre de cellules.');
+        end
+        if (length(alpha_u) ~= length(aLF.fun))
+          error('alpha_u et aLF.fun doivent avoir le même nombre de cellules.');
+        end
+
       else
+
         error(['La fonction intg ne peut être appliquée qu''à un produit ',...
                'd''opérateurs (LinOperator) sur inconnue et sur fonction test ',...
                '(forme bilinéaire), ou à un opérateur sur fonction test (forme ',...
                'linéaire)']);
+
       end
 
-      % Make sure alpha_u, alpha_v, and fun have the same number of cells
-      if (length(alpha_u) ~= length(alpha_v))
-        error('alpha_u et alpha_v doivent avoir le même nombre de cellules.');
-      end
-      if (length(alpha_u) ~= length(aLF.fun))
-        error('alpha_u et aLF.fun doivent avoir le même nombre de cellules.');
-      end
       Nterms = length(alpha_u);
 
       % Compute the global matrix

@@ -24,31 +24,31 @@ classdef PDEObject < FEPack.FEPackObject
     function op = id(u)   % 0-order term
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = [1 0 0 0];
+      op.alpha = {[1 0 0 0]};
     end
 
     function op = dx(u)   % x-derivative
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = [0 1 0 0];
+      op.alpha = {[0 1 0 0]};
     end
 
     function op = dy(u)   % y-derivative
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = [0 0 1 0];
+      op.alpha = {[0 0 1 0]};
     end
 
     function op = dz(u)   % z-derivative
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = [0 0 0 1];
+      op.alpha = {[0 0 0 1]};
     end
 
     function op = grad(u)   % gradient
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = [0 1 0 0; 0 0 1 0; 0 0 0 1];
+      op.alpha = {[0 1 0 0; 0 0 1 0; 0 0 0 1]};
     end
 
     function op = gradDir(u, vec)   % directional gradient

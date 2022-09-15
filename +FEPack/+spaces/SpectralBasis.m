@@ -23,17 +23,20 @@ classdef SpectralBasis < FEPack.FEPackObject
     phis = [];
 
     %> @brief L2 projection matrix onto P1 Lagrange FE spaces
-    %> projmat_{i, k} = <w_i, phi_k>_L2, where w_j are Lagrange basis functions
+    %> projmat_{k, j} = <w_j, phi_k>_L2, where w_j are Lagrange basis functions
     %> and phi_k are the spectral basis functions
     projmat = [];
 
     %> @brief Mass matrix
     massmat = [];
 
+    %> @brief Inverse of mass matrix
+    invmassmat = [];
+
     %> @brief FE-to-Spectral matrix. If the FE components (phi(x1),...,phi(xN))
     %> of a function are stored in \vec{\phi}, then FEtoSp * \vec{\phi} returns
     %> the components of its projection in the spectral base.
-    %> FE_to_spectral = massmat \ projmat.'
+    %> FE_to_spectral = massmat \ projmat
     FE_to_spectral = [];
 
   end
@@ -114,19 +117,19 @@ classdef SpectralBasis < FEPack.FEPackObject
           phis_mat = sp.phis(sp.domain.mesh.points(sp.domain.IdPoints, :), 1:sp.numBasis);
         end
 
-        sp.projmat = mm * phis_mat;
-        sp.massmat = phis_mat' * sp.projmat;
+        sp.projmat = phis_mat' * mm;
+        sp.massmat = sp.projmat * phis_mat;
 
       else
 
-        sp.projmat = zeros(sp.domain.numPoints, sp.numBasis);
+        sp.projmat = zeros(sp.numBasis, sp.domain.numPoints);
         sp.massmat = zeros(sp.numBasis);
 
         for idK = 1:sp.numBasis
 
-          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
+          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) conj(sp.phis(x, idK)));
           mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
-          sp.projmat(:, idK) = mm * ones(sp.domain.numPoints, 1);
+          sp.projmat(idK, :) = (mm * ones(sp.domain.numPoints, 1)).';
 
           for idL = 1:sp.numBasis
 
@@ -140,8 +143,88 @@ classdef SpectralBasis < FEPack.FEPackObject
 
       end
 
+      % Inverse of mass matrix
+      sp.invmassmat = sp.massmat \ eye(sp.numBasis);
+
       % FE-to-spectral matrix
-      sp.FE_to_spectral = sp.massmat \ sp.projmat.';
+      sp.FE_to_spectral = sp.invmassmat * sp.projmat;
+
+    end
+
+    function AA = intg_U_V(varargin)
+      % function AA = intg_shiftU_V(sp, domain, fun, fine_evaluation, quadRule)
+      % INTG_U_V computes the matrix associated to the form
+      %
+      %     intg_domain f(x) * phi_j(x) * overline{phi_i(x)} dx
+      %
+      % INPUTS: * sp, the FourierBasis object,
+      %         * domain, the domain on which the integral is computed
+      %         * fun (function handle) the coefficient in the integral
+      %           WARNING: fun must take in argument a nx3 matrix, and return
+      %                    a nx1 vector.
+      %         * fine_evaluation, integer that indicates how the matrices
+      %           are to be constructed.
+      %           - If fine_evaluation = 0, the matrices are computed by
+      %             approximating each function with its interpolation.
+      %           - If fine_evaluation = 1 and if phis is a function handle,
+      %             the matrices are computed using a quadrature rule.
+      %         * quadRule (QuadratureObject) is optional. For more information,
+      %           see +tools/QuadratureObject.m.
+      %           WARNING: if provided, quadRule.points are expected to
+      %                    span [0, 1].
+
+      sp = varargin{1};
+      dom = varargin{2};
+
+      % Function
+      if (nargin < 3)
+        fun = @(x) ones(size(x, 1), 1);
+      else
+        fun = varargin{3};
+      end
+
+      % Mode of evaluation
+      if (nargin < 4)
+        fine_evaluation = 0;
+      else
+        fine_evaluation = varargin{4};
+      end
+
+      if (fine_evaluation)
+        warning('on');
+        warning('Attention : l''évaluation précise est plus coûteuse.');
+      end
+
+      % Compute matrix
+      if (~fine_evaluation || sp.is_interpolated)
+
+        MM = FEPack.pdes.Form.intg_U_V(dom, fun, varargin{5:end});
+
+        if (sp.is_interpolated)
+          phis_mat = sp.phis;
+        else
+          phis_mat = sp.phis(sp.domain.mesh.points(sp.domain.IdPoints, :), 1:sp.numBasis);
+        end
+
+        AA = phis_mat' * MM(sp.domain.IdPoints, sp.domain.IdPoints) * phis_mat;
+
+      else
+
+        AA = zeros(sp.numBasis);
+
+        for idK = 1:sp.numBasis
+          for idL = 1:sp.numBasis
+
+            MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) fun(x) .* sp.phis(x, idL) .* conj(sp.phis(x, idK)));
+            AA(idK, idL) = ones(1, sp.domain.numPoints) * MM(sp.domain.IdPoints, sp.domain.IdPoints) * ones(sp.domain.numPoints, 1);
+
+          end
+        end
+
+      end
+
+      % FE-to-spectral matrix
+      sp.FE_to_spectral = sp.massmat \ sp.projmat;
 
     end
 

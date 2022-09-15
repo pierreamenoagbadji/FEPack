@@ -18,6 +18,9 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
     function val = FourierBasisFun(P, n, FourierIdsX, FourierIdsY, FourierIdsZ)
 
+      dP = size(P, 2);
+      P = [P, zeros(size(P, 1), 3-dP)];
+
       FourierIdsX = FourierIdsX(:).'; dx = length(FourierIdsX);
       FourierIdsY = FourierIdsY(:).'; dy = length(FourierIdsY);
       FourierIdsZ = FourierIdsZ(:).'; dz = length(FourierIdsZ);
@@ -48,6 +51,10 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
       %           - If fine_evaluation = 1 and if phis is a function handle,
       %             the matrices are computed using a quadrature rule.
 
+      if (nargin < 3)
+        fine_evaluation = 0;
+      end
+
       % There should be more than 1 and less or equal than domDim coefficients
       % for the maximum of indices
       if (isempty(maxId) || (length(maxId) > domain.mesh.dimension))
@@ -55,13 +62,14 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
               'doit être > 0 et <= à la dimension du maillage.']);
       end
 
+      if (fine_evaluation)
+        warning('on');
+        warning('Attention : l''évaluation précise est plus coûteuse et souvent non-nécessaire');
+      end
+
       % Fill the other coordinates of the shift with zeros
       LmaxId = length(maxId);
       maxId = [maxId(:); zeros(3 - LmaxId, 1)];
-
-      if (nargin < 3)
-        fine_evaluation = 0;
-      end
 
       sp.domain = domain;
 
@@ -82,24 +90,27 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
         mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
         phis_mat = sp.phis(sp.domain.mesh.points(sp.domain.IdPoints, :), 1:sp.numBasis);
 
-        sp.projmat = mm * phis_mat;
+        sp.projmat = phis_mat' * mm;
 
       else
 
-        sp.projmat = zeros(sp.domain.numPoints, sp.numBasis);
+        sp.projmat = zeros(sp.numBasis, sp.domain.numPoints);
 
         for idK = 1:sp.numBasis
 
           MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
           mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
-          sp.projmat(:, idK) = mm * ones(sp.domain.numPoints, 1);
+          sp.projmat(:, idK) = (mm * ones(sp.domain.numPoints, 1))';
 
         end
 
       end
 
+      % Inverse of mass matrix
+      sp.invmassmat = speye(sp.numBasis);
+
       % FE-to-spectral matrix
-      sp.FE_to_spectral = sp.projmat.';
+      sp.FE_to_spectral = sp.projmat;
 
     end
 

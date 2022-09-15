@@ -85,7 +85,7 @@ classdef MeshCuboid < FEPack.meshes.Mesh
 
       % Use Gmsh
       system([FEPack.FEPackObject.pathBash, '/gmsh-4.10.5-Linux64/bin/gmsh FEPackmesh.geo -3']);
-      FEPackmesh;
+      FEPack.FEPackmesh;
 
       % Construct the mesh
       mesh.dimension = 3;
@@ -116,7 +116,10 @@ classdef MeshCuboid < FEPack.meshes.Mesh
         mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 2, idom, pts(cle));
       end
       mesh.domains{7} = FEPack.meshes.FEDomain(mesh, 'volumic', 3, 0);
-
+      
+      % Delete the .m file
+      system(['rm ', FEPack.FEPackObject.pathBash, '/+FEPack/FEPackmesh.m']);
+      
     end
 
     % function childmesh = toDomain(mesh)

@@ -13,10 +13,10 @@ classdef LinOperator < FEPack.FEPackObject
 
     %> @brief n-by-4 matrix alpha such that
     % op(U)i = alpha(i,1)*u + alpha(i,2)*dx(u) + alpha(i,2)*dy(u) + alpha(i,2)*dz(u)
-    alpha = [];
+    alpha = {[]};
 
     %> @brief Multiplicative coefficient (for unknown)
-    fun = [];
+    fun = {[]};
 
   end
 
@@ -35,8 +35,8 @@ classdef LinOperator < FEPack.FEPackObject
                'soit toutes primales, soit toutes duales).']);
       end
       opRes = copy(opA);
-      opRes.alpha = opA.alpha + opB.alpha;
-      opRes.fun = @(x) opA.fun(x) + opB.fun(x);
+      opRes.alpha = [opA.alpha; opB.alpha];
+      opRes.fun = [opA.fun; opB.fun];
     end
 
     function res = mtimes(lhs, rhs)
@@ -45,22 +45,31 @@ classdef LinOperator < FEPack.FEPackObject
 
         % Product of function and operator
         res = copy(rhs);
-        if isempty(rhs.fun)
-          res.fun = @(P) lhs(P);
-        else
-          res.fun = @(P) lhs(P) .* rhs.fun(P);
+
+        for idT = 1:length(rhs.fun)
+          if isempty(rhs.fun{idT})
+            res.fun{idT} = @(P) lhs(P);
+          else
+            res.fun{idT} = @(P) lhs(P) .* rhs.fun{idT}(P);
+          end
         end
 
       elseif isa(lhs, 'double')
 
         % Product of an operator and a scalar
         res = copy(rhs);
-        if (max(size(lhs)) ~= 1)
-          % If lhs is a vector or a matrix
-          numL = size(lhs, 2);
-          lhs = [lhs, zeros(size(lhs, 1), size(rhs.alpha, 1)-numL)];
+
+        for idT = 1:length(rhs.alpha)
+          if (length(lhs) == 1)
+            % If lhs is a scalar
+            lhsT = lhs;
+          else
+            % If lhs is a vector or a matrix
+            numL = size(lhs, 2);
+            lhsT = [lhs, zeros(size(lhs, 1), size(rhs.alpha{idT}, 1)-numL)];
+          end
+          res.alpha{idT} = lhsT * rhs.alpha{idT};
         end
-        res.alpha = lhs * rhs.alpha;
 
       elseif isa(lhs, 'FEPack.pdes.LinOperator')
 
@@ -72,10 +81,17 @@ classdef LinOperator < FEPack.FEPackObject
           error('L''opérateur de droite doit être appliqué à une fonction test.');
         end
 
+        % Function multiplied to an operator on test function is not taken into account
+        if max(~cellfun(@isempty, rhs.fun))
+          warning('on');
+          warning(['Pour une forme bilinéaire, les fonctions multipliées aux ',...
+                  'opérateurs sur fonction test ne sont pas prises en compte.']);
+        end
+
         res = FEPack.pdes.Form;
-        res.alpha_u = {lhs.alpha};
-        res.alpha_v = {rhs.alpha};
-        res.fun = {lhs.fun};
+        res.alpha_u = lhs.alpha;
+        res.alpha_v = rhs.alpha;
+        res.fun = lhs.fun;
 
       else
 
