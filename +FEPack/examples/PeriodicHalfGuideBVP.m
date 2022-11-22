@@ -1,4 +1,4 @@
-function [U, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, infiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
+ function [U, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, infiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
   % PeriodicHalfGuideBVP(mesh, orientation, infiniteDirection, volBilinearIntg, BCstruct, numCells, opts) solves
   %
   %       Find u in V such that tau(u) = g, and
@@ -327,10 +327,11 @@ end
 %  % ******** %
 % The flux function
 function flux = modesFlux(V, E00, E10, F00, F10, orientation, spB, omega)
+  
+  Nb = size(E00, 1);
+  Psi  = E00 * V(1:Nb, :) + E10 * V(Nb+1:end, :);
+  dPsi = F00 * V(1:Nb, :) + F10 * V(Nb+1:end, :);
 
-  Psi  = E00 + E10 * V;
-  dPsi = F00 + F10 * V;
-
-  flux = -orientation * imag((Psi' * spB.massmat * dPsi) / omega);
+  flux = -orientation * imag(diag(Psi' * spB.massmat * dPsi) / omega);
 
 end

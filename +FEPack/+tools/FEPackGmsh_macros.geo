@@ -68,13 +68,19 @@ Function FEPack_Cuboid
   LL_5 = newll; Line Loop(LL_5) = {L_4, L_9, -L_8, -L_12};
   LL_6 = newll; Line Loop(LL_6) = {L_2, L_11, -L_6, -L_10};
 
-  // Plane surfaces
+  // Plane surfaces with periodic constraints
   S_1 = news; Plane Surface(S_1) = {LL_1};
   S_2 = news; Plane Surface(S_2) = {LL_2};
+  Periodic Surface {S_2} = {S_1} Translate {0, 0, z5-z1};
+
   S_3 = news; Plane Surface(S_3) = {LL_3};
   S_4 = news; Plane Surface(S_4) = {LL_4};
+  Periodic Surface {S_4} = {S_3} Translate {0, y3-y1, 0};
+
   S_5 = news; Plane Surface(S_5) = {LL_5};
   S_6 = news; Plane Surface(S_6) = {LL_6};
+  Periodic Surface {S_6} = {S_5} Translate {x2-x1, 0, 0};
+
   If (is_structured == 1)
     Transfinite Surface {S_1};
     Transfinite Surface {S_2};

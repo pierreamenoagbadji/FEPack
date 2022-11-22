@@ -37,7 +37,7 @@ function U = PeriodicGuideBVP(infiniteDirection,...
   % volumic FE matrix and right-hand side
   if isa(volBilinearIntg_int, 'FEPack.pdes.Form')
     % Compute the FE matrix if not done already
-    AAint = FEPack.pdes.Form.intg(mesh.domain('volumic'), volBilinearIntg_int);
+    AAint = FEPack.pdes.Form.intg(mesh_int.domain('volumic'), volBilinearIntg_int);
   else
     AAint = volBilinearIntg_int;
   end

@@ -19,7 +19,7 @@ classdef MeshCuboid < FEPack.meshes.Mesh
     % Create a mesh %
     % ============= %
     function mesh = MeshCuboid(is_structured, BBx, BBy, BBz, numNodesX,...
-                               numNodesY, numNodesZ, side_names, name)
+                               numNodesY, numNodesZ, side_names, name, sorttol)
       % MeshCuboid constructor for mesh of a cuboid
       %
       % INPUTS:  * is_structured (boolean) indicates if the mesh is
@@ -33,11 +33,14 @@ classdef MeshCuboid < FEPack.meshes.Mesh
       %          * numNodesX (integer) is the number of nodes on the x-edges;
       %          * numNodesY (integer) is the number of nodes on the y-edges;
       %          * numNodesZ (integer) is the number of nodes on the y-edges;
-      %          * side_names (8x1 string) contains the side names (optional)
+      %          * side_names (8x1 string) contains the side names (optional);
+      %          * sorttol (double), tolerance used when sorting the points
+      %            for domain construction (optional);
       %
       % OUTPUTS: * mesh (MeshCuboid), the mesh.
 
       % Default arguments
+      if (nargin < 10), sorttol = 1.0e-10; end
       if (nargin < 9), randomName(mesh); end
       if (nargin < 8), side_names = {'xmax'; 'xmin'; 'ymax'; 'ymin'; 'zmax'; 'zmin'}; end
       if (nargin < 7), numNodesZ = 4; end
@@ -89,6 +92,7 @@ classdef MeshCuboid < FEPack.meshes.Mesh
 
       % Construct the mesh
       mesh.dimension = 3;
+      mesh.is_structured = is_structured;
       mesh.numEdgeNodes = [numNodesX; numNodesY; numNodesZ];
       mesh.numPoints = msh.nbNod;
       mesh.points = msh.POS;
@@ -106,27 +110,22 @@ classdef MeshCuboid < FEPack.meshes.Mesh
       % Construct maps between edge nodes and subdomains
       % The domains are ordered as : xmax - xmin - ymax - ymin - zmax - zmin
       Icoo = [2, 3; 2, 3; 3, 1; 3, 1; 1, 2; 1, 2];
+      numDec = floor(abs(log10(sorttol)));
       for idom = 1:6
         % Maps between edge nodes
         pts = unique(mesh.triangles(mesh.refTriangles == idom, :));
-        [~, cle] = sortrows(mesh.points(pts, :), Icoo(idom, :));
+        [~, cle] = sortrows(round(mesh.points(pts, :), numDec), Icoo(idom, :));
         mesh.maps{idom} = pts(cle);
 
         % Subdomains
         mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 2, idom, pts(cle));
       end
       mesh.domains{7} = FEPack.meshes.FEDomain(mesh, 'volumic', 3, 0);
-      
+
       % Delete the .m file
       system(['rm ', FEPack.FEPackObject.pathBash, '/+FEPack/FEPackmesh.m']);
-      
+
     end
-
-    % function childmesh = toDomain(mesh)
-    %
-    % end
-
-
 
   end
 

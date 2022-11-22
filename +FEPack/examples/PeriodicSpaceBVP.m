@@ -262,12 +262,12 @@ function U = PeriodicSpaceBVP(semiInfiniteDirection, infiniteDirections,...
 
   % Interior domain
   % ///////////////
-  numCells = [1 1 1];
+  numCells = [1 1 1]; % Number of cells along each component
   numCells(infiniteDirections) = 2*numCellsInfinite;
   Nu = prod(numCells);
 
   [I1, I2, I3] = ind2sub(numCells, 1:Nu);
-  pointsIds = [I1; I2; I3]; % 3-by-Nu
+  pointsIds = [I1; I2; I3]; % 3-by-Nu 
   tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nu) - 1; % Ni-by-Nu
   W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
   U.interior = zeros(Nint, Nu);
