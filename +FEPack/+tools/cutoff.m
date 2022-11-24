@@ -7,7 +7,7 @@ function val = cutoff(x, a, b, sigma, tol)
   end
 
   if (nargin < 4)
-    sigma = 1;
+    sigma = 1/sqrt(8);
   end
 
   val = zeros(size(x));

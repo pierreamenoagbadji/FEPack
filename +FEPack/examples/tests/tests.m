@@ -99,3 +99,31 @@ mesh2D = meshes.MeshCuboid(1, BB(1, :), BB(2, :), BB(3, :), N, N);
 % 
 % plot(x, real(phi(x))); hold on;
 % plot(x, real(phir(x))); hold on;
+
+%%
+x = linspace(-3, 3, 1024)';
+h = 0.5;
+phi = @(x) (-abs(x(:, 1)/h)+1).*(abs(x(:, 1)) < h);
+TFBphi = @(x, k) BlochTransform(x, k, @(x) phi(x), 1, 1, 100, 'periodic');
+
+% figure;
+% plot(x, phi(x));
+
+figure;
+Nk = 1024;
+K = linspace(-pi, pi, Nk)';
+TFBphiVec = TFBphi(x, K);
+pause;
+for i = 1:Nk
+  subplot(2, 1, 1);
+  plot(x, real(TFBphiVec(:, i)));
+  ylim([-0.5, 0.5]);
+  title(['k = ', num2str(K(i), '%d')], 'interpreter', 'latex');
+  
+  subplot(2, 1, 2);
+  plot(x, imag(TFBphiVec(:, i)));
+  ylim([-0.5, 0.5]);
+  
+  pause(0.1);
+  hold off;
+end

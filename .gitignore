@@ -1,5 +1,9 @@
-# Ignore the outputs file
-+FEPack/outputs/
+# Ignore the outputs folder
+/+FEPack/outputs/
 
 # Ignore the gmsh folder
-gmsh-4.10.5-Linux64/*
+/gmsh-4.10.5-Linux64/*
+
+# Ignore meshes
+/FEPackmesh.geo
+/FEPackmesh.m

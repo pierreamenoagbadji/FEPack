@@ -1,4 +1,4 @@
-function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc)
+function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc, BlochType)
   % function TFBfun = BlochTransform(x, k, fun)
   % returns the Floquet-Bloch transform of a function along a given direction.
   % More precisely,
@@ -17,6 +17,8 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc)
   %         * Lcell, a d-sized vector containing the sizes of the cells
   %         * Ntrunc, a d-sized vector containing the truncation sizes
   %           for the sum.
+  %         * BlochType, a string indicating the Floquet-Bloch transform,
+  %           either 'periodic' or 'quasiperiodic'.
   %
   % OUTPUTS: * TFBfun, a Nx-by-Nk matrix
 
@@ -31,6 +33,10 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc)
 
   if (nargin < 6)
     Ntrunc = 100*ones(1, dFB);
+  end
+  
+  if (nargin < 7)
+    BlochType = 'periodic';
   end
 
   if (length(Ntrunc) ~= length(directions))
@@ -54,6 +60,13 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc)
       error('La TFB ne peut pas être appliquée dans la direction %d.', directions(idI));
     end
   end
+  
+  if ~(strcmpi(BlochType, 'periodic') || strcmpi(BlochType, 'quasiperiodic'))
+    % The type of Floquet-Bloch transform should be either 'periodic' or
+    % 'quasiperiodic'
+    error(['Les valeurs possibles pour BlochType sont ''periodic'' et ',...
+           '''quasiperiodic''. L''argument ''%s'' n''est pas possible.'], BlochType);
+  end
 
   % Construct the set of indices
   % ////////////////////////////
@@ -74,19 +87,27 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc)
     NLcell(:, directions(idI)) = Lcell(idI) * sumVars{idI}(sumIds(idI, :))';
   end
 
-  % Compute the Floquet Bloch transform
-  % ///////////////////////////////////
+  % Compute the periodic Floquet Bloch transform
+  % ////////////////////////////////////////////
   Nx = size(x, 1);
 
   x_plus_NL = kron(ones(Nsum, 1), x) + kron(NLcell, ones(Nx, 1)); % Nsum*Nx-by-3
-  F_x_plus_NL = reshape(fun(x_plus_NL), Nx, Nsum); % Nx-by-Nsum
+  F_x_plus_NL = reshape(fun(x_plus_NL), Nx, Nsum);                % Nx-by-Nsum
 
   k_dot_NL = NLcell(:, directions) * k.';  % Nsum-by-Nk
-  exp_k_dot_NL = exp(-1i * k_dot_NL);       % Nsum-by-Nk
+  exp_k_dot_NL = exp(-1i * k_dot_NL);      % Nsum-by-Nk
 
   k_dot_x = x(:, directions) * k.';        % Nx-by-Nk
-  exp_k_dot_x = exp(-1i * k_dot_x);         % Nx-by-Nk
-
+  exp_k_dot_x = exp(-1i * k_dot_x);        % Nx-by-Nk
+  
   TFBfun = prod(Lcell/sqrt(2*pi)) * exp_k_dot_x .* (F_x_plus_NL * exp_k_dot_NL);
-
+  
+  % Switch to the quasiperiodic Floquet-Bloch transform if needed
+  % /////////////////////////////////////////////////////////////
+  if strcmpi(BlochType, 'quasiperiodic')
+    
+    TFBfun = TFBfun .* exp(1i * k_dot_x);
+    
+  end
+  
 end
