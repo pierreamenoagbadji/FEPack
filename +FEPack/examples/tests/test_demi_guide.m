@@ -6,7 +6,7 @@ opts.omega = 8 + 0.1i;
 theta = pi/3;
 opts.cutvec = [cos(theta), sin(theta)];
 orientation = 1;
-coInf = 2;
+coInf = 1;
 mu = @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
 rho = @(x) 1 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
 

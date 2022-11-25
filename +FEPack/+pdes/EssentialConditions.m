@@ -78,6 +78,10 @@ classdef EssentialConditions < FEPack.FEPackObject
       ecsRes.rhs = rhs;
     end
 
+    function ecsRes = eq(ecs, rhs)
+      ecsRes = assignEcs(ecs, rhs);
+    end
+
     % Essential conditions
     function applyEcs(ecs, almostzero)
 

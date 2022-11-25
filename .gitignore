@@ -7,3 +7,5 @@
 # Ignore meshes
 /FEPackmesh.geo
 /FEPackmesh.m
+/+FEPack/FEPackmesh.geo
+/+FEPack/FEPackmesh.m

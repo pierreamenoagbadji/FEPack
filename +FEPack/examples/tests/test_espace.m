@@ -96,7 +96,7 @@ numCellsInfinite = 3;
 numFloquetPoints = 100;
 
 %% Plot the coefficients and the source term
-if (plot_coefficients)
+if (true)%(plot_coefficients)
   set(groot,'defaultAxesTickLabelInterpreter','latex');
   set(groot,'defaulttextinterpreter','latex');
   set(groot,'defaultLegendInterpreter','latex');
