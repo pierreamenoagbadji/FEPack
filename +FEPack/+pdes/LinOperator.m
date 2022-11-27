@@ -101,9 +101,26 @@ classdef LinOperator < FEPack.FEPackObject
         end
 
         res = FEPack.pdes.Form;
-        res.alpha_u = lhs.alpha;
-        res.alpha_v = rhs.alpha;
-        res.fun = lhs.fun;
+        Nu = length(lhs.alpha);
+        Nv = length(rhs.alpha);
+
+        res.alpha_u = cell(Nu * Nv, 1);
+        res.alpha_v = cell(Nu * Nv, 1);
+        res.fun = cell(Nu * Nv, 1);
+
+        for idU = 1:Nu
+          for idV = 1:Nv
+            idT = sub2ind([Nu, Nv], idU, idV);
+
+            res.alpha_u{idT} = lhs.alpha{idU};
+            res.alpha_v{idT} = rhs.alpha{idV};
+            res.fun{idT} = lhs.fun{idU};
+          end % for idU
+        end % for idV
+
+        % res.alpha_u = lhs.alpha;
+        % res.alpha_v = rhs.alpha;
+        % res.fun = lhs.fun;
 
       else
 
