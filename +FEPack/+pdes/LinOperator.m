@@ -29,11 +29,23 @@ classdef LinOperator < FEPack.FEPackObject
   methods
 
     function opRes = plus(opA, opB)
+      % Make sure that both the operators are applied on either unknown or
+      % testfunction
       if (opA.is_dual ~= opB.is_dual)
         error(['Problème de compatibilité : les opérateurs à ajouter ',...
                'doivent être appliquées à des variables de même type (',...
                'soit toutes primales, soit toutes duales).']);
       end
+
+      % Check that the outputs of the operators have same sizes
+      if (size(opA.alpha{1}, 1) ~= size(opB.alpha{1}, 1))
+        error(['Problème d''homogénéité : vous ne pouvez pas ajouter un ',...
+               'opérateur sur R', num2str(size(opA.alpha{1}, 1)), ' à un ',...
+               'opérateur sur R', num2str(size(opB.alpha{1}, 1)), '. Si ',...
+               'vous utilisez le gradient (toujours défini sur R3), pensez ',...
+               'à compléter les autres termes par des 0.']);
+      end
+
       opRes = copy(opA);
       opRes.alpha = [opA.alpha; opB.alpha];
       opRes.fun = [opA.fun; opB.fun];

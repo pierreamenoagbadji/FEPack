@@ -503,11 +503,7 @@ classdef Form < FEPack.FEPackObject
 
         % Linear form
         alpha_v = aLF.alpha;
-
-        alpha_u = cell(length(alpha_v), 1);
-        for idI = 1:length(alpha_v)
-          alpha_u{idI} = [1 0 0 0];
-        end
+        alpha_u = {[1 0 0 0]};
 
       elseif isa(aLF, 'FEPack.pdes.Form')
 
@@ -516,9 +512,6 @@ classdef Form < FEPack.FEPackObject
         alpha_v = aLF.alpha_v;
 
         % Make sure alpha_u, alpha_v, and fun have the same number of cells
-        if (length(alpha_u) ~= length(alpha_v))
-          error('alpha_u et alpha_v doivent avoir le même nombre de cellules.');
-        end
         if (length(alpha_u) ~= length(aLF.fun))
           error('alpha_u et aLF.fun doivent avoir le même nombre de cellules.');
         end
@@ -532,24 +525,25 @@ classdef Form < FEPack.FEPackObject
 
       end
 
-      Nterms = length(alpha_u);
-
       % Compute the global matrix
+      Nu = length(alpha_u);
+      Nv = length(alpha_v);
       AA = sparse(0);
-      for idT = 1:Nterms
 
-        Au = alpha_u{idT};
-        Av = alpha_v{idT};
-        fun = aLF.fun{idT};
+      for idU = 1:Nu
+        fun = aLF.fun{idU};
+        for idV = 1:Nv
+          Au = alpha_u{idU};
+          Av = alpha_v{idV};
 
-        AA = AA + FEPack.pdes.Form.global_matrix(varargin{1}, Au, Av, fun, varargin{3:end});
-
-      end
+          AA = AA + FEPack.pdes.Form.global_matrix(varargin{1}, Au, Av, fun, varargin{3:end});
+        end % for idU
+      end % for idV
 
       % For linear forms, deduce the vector
       if (isa(aLF, 'FEPack.pdes.LinOperator') && aLF.is_dual)
         AA = AA * ones(size(AA, 2), 1);
-      end
+      end % if
 
     end
 
