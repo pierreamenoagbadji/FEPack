@@ -3,21 +3,30 @@
 % =========================================================================== %
 %> @brief class for PDE object
 % =========================================================================== %
-classdef PDEObject < FEPack.FEPackObject
+classdef PDEObject < FEPack.pdes.LinOperator % FEPack.FEPackObject
   % FEPack.pdes.PDEObject < FEPack.FEPackObject
 
   properties (SetAccess = protected)
 
-    %> @brief Indicates if unknown or test function
-    is_dual = 0;
+    %> @brief Indicates if normal dierivative or not
+    is_normal_derivative = 0;
 
   end
 
   methods
 
+    function u = PDEObject   % Initialise PDEObject as 0-order term
+      u.alpha = {[1 0 0 0]};
+    end
+
     function v = dual(u)
       v = copy(u);
       v.is_dual = 1;
+    end
+
+    function dudn = dn(u)
+      dudn = copy(u);
+      dudn.is_normal_derivative = 1;
     end
 
     % For operators
@@ -57,21 +66,27 @@ classdef PDEObject < FEPack.FEPackObject
 
     % For essential conditions
     function ecs = onDomain(~, domain)
-
       ecs = FEPack.pdes.EssentialConditions;
       IdPoints = domain.IdPoints;
       m = size(IdPoints, 1);
 
       ecs.C = sparse(1:m, IdPoints, 1, m, domain.mesh.numPoints);
-
     end
 
     function ecs = or(u, domain)
-
       ecs = onDomain(u, domain);
-
     end
 
-  end
+    % For user-defined symbolic boundary conditions
+    function bcs = onxmin(u)
+      bcs = FEPack.pdes.SymBoundaryCondition;
+      if (u.is_normal_derivative)
+        bcs.dudnBCxmin = {1};
+      else
+        bcs.uBCxmin = {1};
+      end
+    end
+
+  end % methods
 
 end
