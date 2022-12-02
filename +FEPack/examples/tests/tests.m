@@ -138,7 +138,8 @@ Omega = mesh.domain('volumic');
 u = FEPack.pdes.PDEObject;
 v = dual(u);
 
-AA = FEPack.pdes.Form.intg(Omega, (id(u) + dx(u))* id(v) );
+AA = FEPack.pdes.Form.intg(Omega, (grad(u))*grad(v) + id(u)*id(v));
+
 
 %%
 % mesh = FEPack.meshes.MeshSegment('uniform', 0, 1, 32);

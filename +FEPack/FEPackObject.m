@@ -4,7 +4,7 @@ classdef FEPackObject < matlab.mixin.Copyable
     properties
 
         % name for error/log/debug-messages
-        name = 'FEPack Object';
+        name = 'FEPack_Object';
 
     end
 
@@ -23,12 +23,12 @@ classdef FEPackObject < matlab.mixin.Copyable
         % Sets the name to a random string of length 10
         function randomName(obj)
 
-            symbols = ['a':'z' 'A':'Z' '0':'9'];
-            nums = randi(numel(symbols),[1 10]);
-            obj.name = symbols (nums);
+          symbols = ['a':'z' 'A':'Z' '0':'9'];
+          nums = randi(numel(symbols),[1 10]);
+          obj.name = symbols (nums);
 
         end
-
+        
     end
 
 end

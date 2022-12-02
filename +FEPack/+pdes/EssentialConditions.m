@@ -1,7 +1,7 @@
 %> @file EssentialConditions.m
 %> @brief Contains the pdes.EssentialConditions class.
 % =========================================================================== %
-%> @brief class for PDE object
+%> @brief class for essential conditions
 % =========================================================================== %
 classdef EssentialConditions < FEPack.FEPackObject
   % FEPack.pdes.EssentialConditions < FEPack.FEPackObject
