@@ -64,28 +64,52 @@ classdef PDEObject < FEPack.pdes.LinOperator % FEPack.FEPackObject
       op = vec * grad(u);
     end
 
-    % For essential conditions
-    function ecs = onDomain(~, domain)
-      ecs = FEPack.pdes.EssentialConditions;
-      IdPoints = domain.IdPoints;
-      m = size(IdPoints, 1);
+    % For boundary conditions
+    function ecs = onDomain(u, domain)
+      if isa(domain, 'FEPack.meshes.FEDomain')
 
-      ecs.C = sparse(1:m, IdPoints, 1, m, domain.mesh.numPoints);
+        % For essential conditions
+        ecs = FEPack.pdes.EssentialConditions;
+        IdPoints = domain.IdPoints;
+        m = size(IdPoints, 1);
+
+        ecs.C = sparse(1:m, IdPoints, 1, m, domain.mesh.numPoints);
+
+      elseif (ischar(domain) ||...
+              strcmpi(domain, 'xmin') || strcmpi(domain, 'xmax') ||...
+              strcmpi(domain, 'ymin') || strcmpi(domain, 'ymax') ||...
+              strcmpi(domain, 'zmin') || strcmpi(domain, 'zmax'))
+
+        % For symbolic boundary conditions
+        ecs = FEPack.pdes.SymBC;
+
+        if (u.is_normal_derivative)
+          ecs.traceNeumann.scalar.(domain) = 1.0;
+        else
+          ecs.traceDirichlet.scalar.(domain) = 1.0;
+          ecs.traceDirichlet.operator.(domain) = u.fun;
+        end
+
+      else
+
+        error('L''operateur | n''est pas compatible avec le terme de droite choisi.');
+
+      end % if
     end
 
     function ecs = or(u, domain)
       ecs = onDomain(u, domain);
     end
 
-    % For user-defined symbolic boundary conditions
-    function bcs = onxmin(u)
-      bcs = FEPack.pdes.SymBoundaryCondition;
-      if (u.is_normal_derivative)
-        bcs.dudnBCxmin = {1};
-      else
-        bcs.uBCxmin = {1};
-      end
-    end
+    % % For user-defined symbolic boundary conditions
+    % function bcs = onxmin(u)
+    %   bcs = FEPack.pdes.SymBoundaryCondition;
+    %   if (u.is_normal_derivative)
+    %     bcs.dudnBCxmin = {1};
+    %   else
+    %     bcs.uBCxmin = {1};
+    %   end
+    % end
 
   end % methods
 

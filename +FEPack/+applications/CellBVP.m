@@ -1,10 +1,10 @@
 %> @file CellBVP.m
-%> @brief Contains the +solver.CellBVP class.
+%> @brief Contains the +applications.CellBVP class.
 % =========================================================================== %
 %> @brief class for solver of boundary value problem in a cell
 % =========================================================================== %
-classdef CellBVP < FEPack.solver.BVPObject
-  % FEPack.solver.CellBVP < FEPack.solver.BVPObject
+classdef CellBVP < FEPack.applications.BVPObject
+  % FEPack.applications.CellBVP < FEPack.applications.BVPObject
 
   properties (SetAccess = protected)
 
@@ -52,11 +52,11 @@ classdef CellBVP < FEPack.solver.BVPObject
       entrees.addParameter('numEdgeNodes', defaultNumNodes, validNumNodes);
       entrees.addParameter('BilinearIntegrand', defaultBilinearIntegrand, @(x) isa(x, 'FEPack.pdes.Form'));
       entrees.addParameter('LinearIntegrand', defaultLinearIntegrand, @(x) isa(x, 'FEPack.pdes.Form'));
-      
+
 
       % Parse the inputs
       parse(entrees, dimension, varargin{:});
-      cellBVPsolver.mesh = entrees;
+      cellBVPapplications.mesh = entrees;
 
     end
 
