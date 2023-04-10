@@ -95,6 +95,7 @@ classdef MeshSegment < FEPack.meshes.Mesh
         mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{numD(idom)}, 0, idom, mesh.maps{idom});
       end
       mesh.domains{3} = FEPack.meshes.FEDomain(mesh, 'volumic', 1, 0);
+      mesh.mapdomains = [mesh.domains{1}.reference, mesh.domains{2}.reference];
 
     end
 

@@ -90,6 +90,10 @@ classdef Mesh < FEPack.FEPackObject
     %> along the x, y, z boundaries
     maps = {};
 
+    %> @brief Relevant for cuboids, this vector maps the references of 
+    %> the domains facing each other
+    mapdomains = {};
+
   end
 
   methods (Abstract)

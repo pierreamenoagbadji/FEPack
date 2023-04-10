@@ -121,7 +121,12 @@ classdef MeshCuboid < FEPack.meshes.Mesh
         mesh.domains{idom} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 2, idom, pts(cle));
       end
       mesh.domains{7} = FEPack.meshes.FEDomain(mesh, 'volumic', 3, 0);
-
+      
+      % Map between domains
+      mesh.mapdomains = [mesh.domains{1}.reference, mesh.domains{2}.reference;...
+                         mesh.domains{3}.reference, mesh.domains{4}.reference;...
+                         mesh.domains{5}.reference, mesh.domains{6}.reference];
+      
       % Delete the .m file
       system(['rm ', FEPack.FEPackObject.pathBash, '/+FEPack/FEPackmesh.m']);
 

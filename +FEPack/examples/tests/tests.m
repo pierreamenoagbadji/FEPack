@@ -127,19 +127,78 @@
 %   pause(0.1);
 %   hold off;
 % end
+% 
+% %%
+% clear; clc;
+% import FEPack.*
+% 
+% mesh = FEPack.meshes.MeshRectangle(0, [0, 1], [0, 1], 32, 32);
+% Omega = mesh.domain('volumic');
+% Sigma = mesh.domain('xmin');
+% 
+% u = FEPack.pdes.PDEObject;
+% v = dual(u);
+% 
+% AA = FEPack.pdes.Form.intg(Omega, (grad(u))*grad(v) + id(u)*id(v));
+
 
 %%
 clear; clc;
 import FEPack.*
+N = 32;
 
-mesh = FEPack.meshes.MeshRectangle(0, [0, 1], [0, 1], 32, 32);
+omega = @(x) ones(size(x, 1), 1);
+% mu = @(x) 1.5 + cos(2*pi*x(:, 1));
+rho = @(x) ones(size(x, 1), 1);
+% rho = @(x) 1 + 0.5*sin(2*pi*x(:, 1));
+
+mesh = FEPack.meshes.MeshSegment('uniform', 0, 1, N);
 Omega = mesh.domain('volumic');
+x0 = mesh.domain('xmin');
+x1 = mesh.domain('xmax');
 
 u = FEPack.pdes.PDEObject;
 v = dual(u);
 
-AA = FEPack.pdes.Form.intg(Omega, (grad(u))*grad(v) + id(u)*id(v));
+MM = FEPack.pdes.Form.intg(Omega, rho * u * v);
+KK = FEPack.pdes.Form.intg(Omega, (omega * grad(u))*grad(v));
 
+ecsDir = ((u|x0) == 0) & ((u|x1) == 0); ecsDir.applyEcs;
+ecsPer = ((u|x0) - (u|x1) == 0); ecsPer.applyEcs;
+
+[phiDir, lambdaDir] = eigs(ecsDir.P * KK * ecsDir.P', ecsDir.P * MM * ecsDir.P', N-2, 'sm');
+[phiPer, lambdaPer] = eigs(ecsPer.P * KK * ecsPer.P', ecsPer.P * MM * ecsPer.P', N-2, 'sm');
+lambdaDir = diag(lambdaDir);
+lambdaPer = diag(lambdaPer);
+phiDir = ecsDir.P' * phiDir;
+phiPer = ecsPer.P' * phiPer;
+
+plot((lambdaDir), 'bx', 'markersize', 10); hold on;
+plot((lambdaPer), 'ro', 'markersize', 10); hold on;
+% plot((lambdaDir), zeros(size(lambdaDir)), 'bx', 'markersize', 10); hold on;
+% plot((lambdaPer), zeros(size(lambdaPer)), 'ro', 'markersize', 10); hold on;
+%%
+omega = linspace(0, 10, 1024);
+
+Nev = 1000;
+L = 1;
+k = (1:Nev)';
+lambda = (k*pi/L).^2;
+alpha0 = (k*pi/L)*sqrt(2/L);
+alpha1 = -alpha0.*((-1).^k);
+zeta = 1 ./ (omega.^2 - lambda);
+
+t00 = (alpha0.*alpha0)' * zeta;
+t10 = (alpha1.*alpha0)' * zeta;
+t01 = (alpha0.*alpha1)' * zeta;
+t11 = (alpha1.*alpha1)' * zeta;
+
+
+plot(omega, t11);
+hold on;
+plot(omega, omega./tan(omega*L));
+% plot(omega, -omega./sin(omega*L))
+hold off;
 
 %%
 % mesh = FEPack.meshes.MeshSegment('uniform', 0, 1, 32);

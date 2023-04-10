@@ -77,6 +77,25 @@ classdef FEDomain < FEPack.FEPackObject
 
     end
 
+    function val = eq(domA, domB)
+      % Checks if domA and domB are equal or 
+      % are facing each other (last one relevant for cuboids only)
+      if (domA.mesh ~= domB.mesh)
+        val = 0;
+      elseif (domA.reference == domB.reference)
+        val = 1;
+      else
+        [Ia, ~] = find(domA.mesh.mapdomains == domA.reference);
+        [Ib, ~] = find(domB.mesh.mapdomains == domB.reference);
+
+        if (Ia == Ib)
+          val = 2;
+        else
+          val = 0;
+        end
+      end
+    end
+
     function structLoc = locateInDomain(domain, P, almostzero)
       % function [val, structLoc] = LOCATEINDOMAIN(domain, P, almostzero)
       % computes the barycentric coordinates of points P in a given domain.

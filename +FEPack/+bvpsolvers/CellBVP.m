@@ -58,6 +58,9 @@ classdef CellBVP < FEPack.applications.BVPObject
       parse(entrees, dimension, varargin{:});
       cellBVPapplications.mesh = entrees;
 
+
+      boundary_conditions = @(u, SigmaMIN, SigmaMAX) (u|SigmaMIN) + (dn(u)|SigmaMIN) == 0.0;
+
     end
 
     % Resolution

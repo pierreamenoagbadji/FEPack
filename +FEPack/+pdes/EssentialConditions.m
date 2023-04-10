@@ -111,8 +111,8 @@ classdef EssentialConditions < FEPack.FEPackObject
 
       if (max(redConst))
         % There are redundant constraints
-        warning('on');
-        warning('Les contraintes redondantes ont été supprimées.');
+        % warning('on');
+        % warning('Les contraintes redondantes ont été supprimées.');
 
         % Constraints that are not compatible with the right-hand side
         numIncompConst = length(find(max(abs(G(redConst))) > almostzero));

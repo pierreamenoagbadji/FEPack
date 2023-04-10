@@ -108,6 +108,10 @@ classdef MeshRectangle < FEPack.meshes.Mesh
         mesh.domains{numD(idom)} = FEPack.meshes.FEDomain(mesh, side_names{idom}, 1, evec(idom), pts(cle));
       end
       mesh.domains{5} = FEPack.meshes.FEDomain(mesh, 'volumic', 2, 0);
+      
+      % Map between domains' references
+      mesh.mapdomains = [mesh.domains{1}.reference, mesh.domains{2}.reference;...
+                         mesh.domains{3}.reference, mesh.domains{4}.reference];
 
       % Delete the .m file
       system(['rm ', FEPack.FEPackObject.pathBash, '/+FEPack/FEPackmesh.m']);
