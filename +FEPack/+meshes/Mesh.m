@@ -92,7 +92,7 @@ classdef Mesh < FEPack.FEPackObject
 
     %> @brief Relevant for cuboids, this vector maps the references of 
     %> the domains facing each other
-    mapdomains = {};
+    mapdomains =  [];
 
   end
 
