@@ -7,6 +7,13 @@
 classdef FEDomain < FEPack.FEPackObject
   % FEPack.meshes.FEDomain < FEPack.FEPackObject
 
+  properties (SetAccess = public)
+    
+    %> @brief (Optional) Spectral basis attached to the domain
+    spectralBasis = [];
+
+  end
+
   properties (SetAccess = protected)
 
     %> @brief Dimension of the domain
@@ -74,6 +81,17 @@ classdef FEDomain < FEPack.FEPackObject
       % FEdom.points = find(mesh.refPoints == reference);
       % FEdom.segments = find(mesh.refSegments == reference);
       % FEdom.triangles = find(mesh.refTriangles == reference);
+
+    end
+
+    function attachSpectralBasis(FEdom, spectralB)
+
+      % Preliminary verifications
+      if ((spectralB.domain == FEdom) ~= 1)
+        error('La base n''est pas définie sur le domaine auquel on souhaite l''attacher.');
+      end
+
+      FEdom.spectralBasis = spectralB;
 
     end
 
@@ -188,68 +206,73 @@ classdef FEDomain < FEPack.FEPackObject
     end
 
 
-    function [val, structInterp] = interpolate(domain, P, U, tol)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % REVOIR: J'ai l'impression qu'on ne l'utilise pas pour le
+    % moment. En plus on peut simplifier cette fonction grâce à
+    % locateInDomain()
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % function [val, structInterp] = interpolate(domain, P, U, tol)
 
-      if (nargin < 4)
-        tol = 1e-15;
-      end
+    %   if (nargin < 4)
+    %     tol = 1e-15;
+    %   end
 
-      if (nargin < 3)
-        U = sparse(domain.mesh.numPoints, 1);
-      end
+    %   if (nargin < 3)
+    %     U = sparse(domain.mesh.numPoints, 1);
+    %   end
 
-      Nx = size(P, 1);
-      Nu = size(U, 2);
-      d = domain.mesh.dimension;
+    %   Nx = size(P, 1);
+    %   Nu = size(U, 2);
+    %   d = domain.mesh.dimension;
 
-      if (domain.dimension ~= d)
-        error('Je ne peux traiter que les cas où les dimensions du domaine et du maillage sont égales.');
-      end
+    %   if (domain.dimension ~= d)
+    %     error('Je ne peux traiter que les cas où les dimensions du domaine et du maillage sont égales.');
+    %   end
 
-      val = zeros(Nx, Nu);
-      structInterp.coo = zeros(d+1, Nx);
-      structInterp.idelements = zeros(1, Nx);
+    %   val = zeros(Nx, Nu);
+    %   structInterp.coo = zeros(d+1, Nx);
+    %   structInterp.idelements = zeros(1, Nx);
 
-      for idP = 1:Nx
+    %   for idP = 1:Nx
 
-        % Find the element the current point belongs to as well as its
-        % barycentric coordinates
-        idE = 1;
-        % mm = -Inf;
+    %     % Find the element the current point belongs to as well as its
+    %     % barycentric coordinates
+    %     idE = 1;
+    %     % mm = -Inf;
 
-        while (true)
-          % Nodes of the element
-          S = domain.mesh.points(domain.elements(idE, :).', :).'; % 3-by-(d+1)
+    %     while (true)
+    %       % Nodes of the element
+    %       S = domain.mesh.points(domain.elements(idE, :).', :).'; % 3-by-(d+1)
 
-          % Compute the barycentric coordinates by solving a linear system
-          A = [S(1:d, :); ones(1, d + 1)]; % (d+1)-by-(d+1)
-          B = [P(idP, 1:d).'; 1];      % (d+1)-by-1
+    %       % Compute the barycentric coordinates by solving a linear system
+    %       A = [S(1:d, :); ones(1, d + 1)]; % (d+1)-by-(d+1)
+    %       B = [P(idP, 1:d).'; 1];      % (d+1)-by-1
 
-          baryCoo = A \ B;             % (d+1)-by-1
-          % mm = max(mm, min(baryCoo.*(1 - baryCoo)));
+    %       baryCoo = A \ B;             % (d+1)-by-1
+    %       % mm = max(mm, min(baryCoo.*(1 - baryCoo)));
 
-          % Stop criterion
-          if min(baryCoo.*(1 - baryCoo) > -tol)
-            break;
-          else
-            idE = idE + 1;
-          end
+    %       % Stop criterion
+    %       if min(baryCoo.*(1 - baryCoo) > -tol)
+    %         break;
+    %       else
+    %         idE = idE + 1;
+    %       end
 
-          % Error if point not found
-          if (idE > domain.numElts)
-            % mm
-            error('Le point (%d, %d, %d) ne semble pas appartenir au domaine.', P(idP, 1), P(idP, 2), P(idP, 3));
-          end
-        end
+    %       % Error if point not found
+    %       if (idE > domain.numElts)
+    %         % mm
+    %         error('Le point (%d, %d, %d) ne semble pas appartenir au domaine.', P(idP, 1), P(idP, 2), P(idP, 3));
+    %       end
+    %     end
 
-        % Compute the interpolated value
-        nodes = domain.elements(idE, :);  % 1-by-(d+1)
-        val(idP, :) = baryCoo.' * U(nodes', :);
-        structInterp.coo(:, idP) = baryCoo;
-        structInterp.idelements(idP) = idE;
-      end
+    %     % Compute the interpolated value
+    %     nodes = domain.elements(idE, :);  % 1-by-(d+1)
+    %     val(idP, :) = baryCoo.' * U(nodes', :);
+    %     structInterp.coo(:, idP) = baryCoo;
+    %     structInterp.idelements(idP) = idE;
+    %   end
 
-    end
+    % end
 
   end
 

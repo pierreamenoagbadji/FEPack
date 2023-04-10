@@ -421,7 +421,7 @@ classdef Form < FEPack.FEPackObject
       AA = FEPack.pdes.Form.global_matrix(varargin{1}, alpha, alpha, varargin{2:end});
     end
 
-    function AA = intg_TU_V(domain, Tmat, spectralB, representation)
+    function AA = intg_TU_V(domain, Tmat, representation)
       % function AA = INTG_TU_V(domain, Tmat, space, representation)
       % Computes the FE matrix associated to the integral
       %
@@ -441,7 +441,6 @@ classdef Form < FEPack.FEPackObject
       %           the integrals are evaluated.
       %         * Tmat, a matrix that represents the operator applied to the
       %           unknown.
-      %         * spectralB, SpectralBasis object.
       %         * representation, a string between 'weak evaluation' and
       %           'projection', which specifies the definition of T.
       %
@@ -456,17 +455,28 @@ classdef Form < FEPack.FEPackObject
 
         % Trivial case of multiplication by a scalar
         AA = Tmat * FEPack.pdes.Form.intg_U_V(domain);
-
-      elseif ~(size(Tmat) == spectralB.numBasis)
-
-        error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de base spectrale.');
-
+      
       else
+
+        % The operator is represented by a matrix
+        % 1. Make sure there is a spectral basis attached to the domain
+        if isempty(domain.spectralBasis)
+          
+          error('Pour évaluer faiblement un opérateur, une base spectrale doit être attachée au domaine.');
+
+        end
+
+        % 2. The size of the matrix should coincide with the size of the basis 
+        if ~(size(Tmat) == domain.spectralBasis.numBasis)
+
+          error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de  base spectrale.');
+        
+        end
 
         if strcmpi(representation, 'projection')
 
           % Deduce the weakly evaluated matrix from the projected one
-          Tmat = spectralB.massmat * Tmat;
+          Tmat = domain.spectralBasis.massmat * Tmat;
 
         elseif ~strcmpi(representation, 'weak evaluation')
 
@@ -478,17 +488,17 @@ classdef Form < FEPack.FEPackObject
 
         % If not done already, compute the matrices associated to
         % the spectral basis
-        if isempty(spectralB.massmat)
-          spectralB.computeBasisMatrices(0);
+        if isempty(domain.spectralBasis.massmat)
+          domain.spectralBasis.computeBasisMatrices(0);
         end
 
         % Deduce the matrix
         N = domain.mesh.numPoints;
         AA = sparse(N, N);
-        AA(domain.IdPoints, domain.IdPoints) = spectralB.FE_to_spectral' * Tmat * spectralB.FE_to_spectral;
-
+        AA(domain.IdPoints, domain.IdPoints) = domain.spectralBasis.FE_to_spectral' * Tmat * domain.spectralBasis.FE_to_spectral;
+        
       end
-
+      
     end
 
     function AA = intg(varargin)

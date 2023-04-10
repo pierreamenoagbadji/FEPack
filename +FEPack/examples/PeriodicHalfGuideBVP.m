@@ -208,8 +208,8 @@
       BCstruct.representation = 'projection';
     end
 
-    SS0 = FEPack.pdes.Form.intg_TU_V(Sigma0, BCstruct.BCu, spB0, BCstruct.representation);
-    SS1 = FEPack.pdes.Form.intg_TU_V(Sigma1, BCstruct.BCu, spB1, BCstruct.representation);
+    SS0 = FEPack.pdes.Form.intg_TU_V(Sigma0, BCstruct.BCu, BCstruct.representation);
+    SS1 = FEPack.pdes.Form.intg_TU_V(Sigma1, BCstruct.BCu, BCstruct.representation);
     AA = AA + SS0 + SS1;
 
     % Surfacic right-hand sides

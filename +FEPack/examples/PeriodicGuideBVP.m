@@ -70,8 +70,8 @@ function U = PeriodicGuideBVP(infiniteDirection,...
            'de Dirichlet. Revoir les problèmes de demi-guide considérés.'])
   end
 
-  SSpos = FEPack.pdes.Form.intg_TU_V(Sigma_pos, BCu_int_pos, spBint_pos, 'projection');
-  SSneg = FEPack.pdes.Form.intg_TU_V(Sigma_neg, BCu_int_neg, spBint_neg, 'projection');
+  SSpos = FEPack.pdes.Form.intg_TU_V(Sigma_pos, BCu_int_pos, 'projection');
+  SSneg = FEPack.pdes.Form.intg_TU_V(Sigma_neg, BCu_int_neg, 'projection');
 
   AAint = AAint - SSpos - SSneg;
 

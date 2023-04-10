@@ -74,8 +74,8 @@ if strcmpi(basis_functions, 'Lagrange')
   spBint_pos = FEPack.spaces.PeriodicLagrangeBasis(mesh_int.domains{2*coInf-1});
 else
   FourierIds = [0 0]; FourierIds(3-coInf) = N/4;
-  spBint_pos = spaces.FourierBasis(mesh_int.domains{2*coInf}, FourierIds);
-  spBint_neg = spaces.FourierBasis(mesh_int.domains{2*coInf-1}, FourierIds);
+  spBint_neg = spaces.FourierBasis(mesh_int.domains{2*coInf}, FourierIds);
+  spBint_pos = spaces.FourierBasis(mesh_int.domains{2*coInf-1}, FourierIds);
 end
 
 volBilinearIntg_int = volBilinearIntg(mu, rho);

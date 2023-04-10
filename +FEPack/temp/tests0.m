@@ -222,7 +222,7 @@
 % % sp = FEPack.spaces.FourierBasis(xmin, [0, N/4], false);
 % % % sp = FEPack.spaces.PeriodicLagrangeBasis(xmin);
 % % % Nb = sp.numBasis;
-% % % MM1 = FEPack.pdes.Form.intg_TU_V(xmin, eye(Nb), sp, 'weak evaluation');
+% % % MM1 = FEPack.pdes.Form.intg_TU_V(xmin, eye(Nb), 'weak evaluation');
 % % % MM2 = FEPack.pdes.Form.intg_U_V(xmin);
 % % MMphi1 = sp.intg_U_V(xmin);
 % % MMphi2 = sp.intg_U_V(xmax);

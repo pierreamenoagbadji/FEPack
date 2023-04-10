@@ -79,6 +79,9 @@ classdef SpectralBasis < FEPack.FEPackObject
         sp.is_interpolated = is_interpolated;
         sp.numBasis = numBasis;
 
+        % Attach spectral basis to domain
+        domain.attachSpectralBasis(sp);
+
       end
 
     end
