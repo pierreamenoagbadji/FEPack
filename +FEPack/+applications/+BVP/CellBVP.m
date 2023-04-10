@@ -1,10 +1,9 @@
 %> @file CellBVP.m
-%> @brief Contains the +applications.CellBVP class.
+%> @brief Contains the +applications.BVP.CellBVP class.
 % =========================================================================== %
 %> @brief class for solver of boundary value problem in a cell
 % =========================================================================== %
-classdef CellBVP < FEPack.applications.BVPObject
-  % FEPack.applications.CellBVP < FEPack.applications.BVPObject
+classdef CellBVP < FEPack.applications.BVP.BVPObject
 
   properties (SetAccess = protected)
 
@@ -56,10 +55,10 @@ classdef CellBVP < FEPack.applications.BVPObject
 
       % Parse the inputs
       parse(entrees, dimension, varargin{:});
-      cellBVPapplications.mesh = entrees;
+      cellBVPsolver.mesh = entrees;
 
 
-      boundary_conditions = @(u, SigmaMIN, SigmaMAX) (u|SigmaMIN) + (dn(u)|SigmaMIN) == 0.0;
+      % boundary_conditions = @(u, SigmaMIN, SigmaMAX) (u|SigmaMIN) + (dn(u)|SigmaMIN) == 0.0;
 
     end
 
