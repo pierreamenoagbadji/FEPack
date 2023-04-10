@@ -20,12 +20,18 @@ classdef FEPackObject < matlab.mixin.Copyable
 
     methods
 
+        function FEObj = FEPackObject
+
+          FEObj.randomName
+
+        end
+
         % Sets the name to a random string of length 10
-        function randomName(obj)
+        function randomName(FEobj)
 
           symbols = ['a':'z' 'A':'Z' '0':'9'];
           nums = randi(numel(symbols),[1 10]);
-          obj.name = symbols (nums);
+          FEobj.name = symbols (nums);
 
         end
         

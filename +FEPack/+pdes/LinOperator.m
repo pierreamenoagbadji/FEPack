@@ -12,7 +12,7 @@ classdef LinOperator < FEPack.FEPackObject
     is_dual = 0;
 
     %> @brief n-by-4 matrix alpha such that
-    % op(U)i = alpha(i,1)*u + alpha(i,2)*dx(u) + alpha(i,2)*dy(u) + alpha(i,2)*dz(u)
+    % op(u)i = alpha(i,1)*u + alpha(i,2)*dx(u) + alpha(i,2)*dy(u) + alpha(i,2)*dz(u)
     alpha = {[]};
 
     %> @brief Multiplicative coefficient (for unknown)
@@ -21,8 +21,6 @@ classdef LinOperator < FEPack.FEPackObject
   end
 
   methods (Static)
-
-
 
   end
 
