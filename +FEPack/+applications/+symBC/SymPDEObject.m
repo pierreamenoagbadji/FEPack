@@ -11,15 +11,14 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
     %> @brief Indicates if normal dierivative or not
     is_normal_derivative = 0;
 
-    %> @brief Matrix-represented operator
-    op = [];
-
+    %> @note The attribute fun is a 'function_handle' (for multiplicative
+    %> coefficient) or a matrix (representing a linear operator)
   end
 
   methods
 
     function u = SymPDEObject   % Initialise SymPDEObject as 0-order term
-      u.alpha = [0 0];
+      u.alpha = 1;
       u.fun = [];
     end
 
@@ -43,35 +42,29 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
 
         % Multiplication by function
         normal_derivative_not_allowed(u);
-
         if isempty(u.fun)
+
           ures.fun = @(P) lhs(P);
-        else
+        
+        else % a function handle is already attached to u
+        
           ures.fun = @(P) lhs(P) * ures.fun(P);
+        
         end
 
-      elseif (~isa(lhs, 'double'))
+      elseif isa(lhs, 'double') && (length(lhs) == 1)
 
-        % Multiplication should be by a function or a matrix (incl. scalar)
-        error(['La multiplication ne peut se faire par une instance ', class(lhs),...
-               '; seules les types ''function_handle'' et ''double'' sont autorisés.']);
-      
-      elseif (length(lhs) == 1)
-        
+        % Trivial multiplication by a scalar
         ures.alpha = lhs * u.alpha;
-         
+
       else
 
-        % Operator represented by matrix
-        normal_derivative_not_allowed(u);
+        % Multiplication should be by a function or a scalar
+        error(['La multiplication ne peut se faire par une instance ', class(lhs),...
+               '; seules les ''function_handle'' et les scalaires sont autorisés.']);
+      
         
-        if isempty(u.op)
-          ures.op = lhs;
-        else
-          ures.op = lhs * ures.op;
-        end
-        
-      end
+      end 
 
     end
 
@@ -80,27 +73,29 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
       if isa(domain, 'FEPack.meshes.FEDomain')
 
         % Symbolic boundary conditions
-        symBC = FEPack.bvpsolvers.SymBoundaryCondition;
-        symBC.domains = {domain};
-        [~, domId] = find(domain.mesh.mapdomains == domain.reference);
-        u.alpha = [0 0];
-        u.alpha(domId) = 1;
+        symBC = FEPack.applications.symBC.SymBoundaryCondition;
+        symBC.domain = {domain};
+        % [~, domId] = find(domain.mesh.mapdomains == domain.reference);
+        % u.alpha = [0 0];
+        % u.alpha(domId) = 1;
         
+
+
         if (u.is_normal_derivative)
-          symBC.gamma0 = {[0 0]};
-          symBC.gamma1 = {u.alpha};
+          symBC.gamma0 = {0}; % {[0 0]};
+          symBC.gamma1 = {u.alpha}; % {u.alpha};
         else
-          symBC.gamma0 = {u.alpha};
-          symBC.gamma1 = {[0 0]};
+          symBC.gamma0 = {u.alpha}; % {u.alpha};
+          symBC.gamma1 = {0}; % {[0 0]};
         end
 
         symBC.fun = {u.fun};
-        symBC.op = {u.op};
+        % symBC.fun{1, domId} = u.fun;
 
       else
 
         error(['L''operateur | n''est pas compatible avec le terme ', ...
-               'de droite choisi (qui est de type', class(domain), ').']);
+               'de droite choisi (qui est de type ', class(domain), ').']);
 
       end % if
     end
@@ -109,15 +104,35 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
       symBC = onDomain(u, domain);
     end
 
-    % % For user-defined symbolic boundary conditions
-    % function bcs = onxmin(u)
-    %   bcs = FEPack.pdes.SymBoundaryCondition;
-    %   if (u.is_normal_derivative)
-    %     bcs.dudnBCxmin = {1};
-    %   else
-    %     bcs.uBCxmin = {1};
-    %   end
-    % end
+    % Boundary condition involving operator represented by matrix
+    function symBC = T_U(u, domain, Tmat, representation)
+      % INPUTS: * u, FEPack.applications.symBC.SymPDEObject.
+      %         * domain, FEPack.meshes.FEDomain object, the domain on which
+      %           the condition is defined.
+      %         * Tmat, a matrix that represents the operator applied to the
+      %           unknown.
+      %         * representation, a string between 'weak evaluation' and
+      %           'projection', which specifies the definition of T.
+      %
+      % OUTPUTS: * symBC, FEPack.applications.symBC.SymBoundaryCondition.
+      normal_derivative_not_allowed(u);
+      symBC = FEPack.applications.symBC.SymBoundaryCondition;
+      symBC.domain = {domain};
+      symBC.gamma0 = {u.alpha};
+      symBC.gamma1 = {0};
+      
+      if (~isempty(u.fun))
+
+        error('l''inconnue semble être déjà multipliée par quelque chose');
+
+      else
+        
+        % Set the operator
+        symBC.fun = {{Tmat, representation}};
+
+      end
+
+    end
 
   end % methods
 

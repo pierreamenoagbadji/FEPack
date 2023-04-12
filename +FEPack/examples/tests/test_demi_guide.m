@@ -10,7 +10,7 @@ coInf = 1;
 mu = @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
 rho = @(x) 1 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
 
-N = 32;
+N = 4;
 BB = [0, 1; 0, 1]; BB(coInf, 2) = orientation;
 mesh = meshes.MeshRectangle(1, BB(1, :), BB(2, :), N, N);
 cell = mesh.domain('volumic');
