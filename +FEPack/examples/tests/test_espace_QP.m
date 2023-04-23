@@ -33,7 +33,7 @@ F3D = @(x) F2Ddroit(x);
 intBounds.pos = +0.5;
 intBounds.neg = -1;
 structmesh = 0;
-basis_functions = 'Lagrange';
+basis_functions = 'Fourier';
 u = pdes.PDEObject; v = dual(u);
 % volBilinearIntg = @(muco, rhoco) (muco * grad(u)) * grad(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 volBilinearIntg = @(muco, rhoco) (muco * gradDir(u, opts.cutmat)) * gradDir(v, opts.cutmat) - (opts.omega^2) * ((rhoco*id(u))*id(v));
@@ -42,7 +42,7 @@ straight_boundary = true;
 compareU = true;
 
 numNodes2D = 32;
-numNodes3D = 8;
+numNodes3D = 16;
 
 %% Parameters for the positive half-guide
 %  //////////////////////////////////////

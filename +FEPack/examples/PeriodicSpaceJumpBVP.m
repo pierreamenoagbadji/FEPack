@@ -1,8 +1,7 @@
 function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
                                   volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                                   volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                                  volBilinearIntg_int, volLinearIntg, mesh_int, spBint_pos, spBint_neg,...
-                                  numCellsInfinite, numFloquetPoints, opts)
+                                  jumpLinearIntg, numCellsInfinite, numFloquetPoints, opts)
   % PeriodicSpaceBVP
 
   %% % ************************* %
@@ -113,34 +112,6 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
     end
   end
 
-  % Interior domain
-  Nint = mesh_int.numPoints;
-  AAelem_int = cell(Ni +1, Ni + 1);
-  for idU = 1:(Ni + 1)
-    for idV = 1:(Ni + 1)
-      AAelem_int{idV, idU} = sparse(Nint, Nint);
-    end
-  end
-
-  for idT = 1:length(volBilinearIntg_int.alpha_u)
-    fun = volBilinearIntg_int.fun{idT};
-
-    Au = cell(Ni + 1, 1);
-    Av = cell(Ni + 1, 1);
-    Au{1} = volBilinearIntg_int.alpha_u{idT};
-    Av{1} = volBilinearIntg_int.alpha_v{idT};
-    for idB = 1:Ni
-      Au{idB + 1} = Au{1}(:, infiniteDirections(idB) + 1) * [1 0 0 0];
-      Av{idB + 1} = Av{1}(:, infiniteDirections(idB) + 1) * [1 0 0 0];
-    end
-
-    for idU = 1:(Ni + 1)
-      for idV = 1:(Ni + 1)
-        AAelem_int{idV, idU} = AAelem_int{idV, idU} + FEPack.pdes.Form.global_matrix(mesh_int.domain('volumic'), Au{idU}, Av{idV}, fun);
-      end
-    end
-  end
-
   %% % *************************************************** %
   %  % Compute the Floquet-Bloch transform of the solution %
   %  % *************************************************** %
@@ -165,7 +136,7 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
     K(:, idI) = FBpoints{idI}(FloquetIds(idI, :)).';
   end
 
-  volLinearIntg_FB = copy(volLinearIntg);
+  jumpLinearIntg_FB = copy(jumpLinearIntg);
 
   % Solve a family of half-guide problems
   % /////////////////////////////////////
@@ -185,24 +156,21 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
     FBvar = [1, 1i*K(idFB, :)];
     AApos = sparse(Npos, Npos);
     AAneg = sparse(Nneg, Nneg);
-    AAint = sparse(Nint, Nint);
     for idU = 1:(Ni + 1)
       for idV = 1:(Ni + 1)
         AApos = AApos + FBvar(idV)' * AAelem_pos{idV, idU} * FBvar(idU);
         AAneg = AAneg + FBvar(idV)' * AAelem_neg{idV, idU} * FBvar(idU);
-        AAint = AAint + FBvar(idV)' * AAelem_int{idV, idU} * FBvar(idU);
       end
     end
 
     % The Floquet-Bloch transform of the boundary data along the relevant directions
-    volLinearIntg_FB.fun = @(x) BlochTransform(x, K(idFB, :), volLinearIntg.fun, infiniteDirections);
+    jumpLinearIntg_FB.fun = {@(x) BlochTransform(x, K(idFB, :), jumpLinearIntg.fun{1}, infiniteDirections)};
 
     % Compute the solution
-    TFBU{idFB} = PeriodicGuideBVP(semiInfiniteDirection,...
+    TFBU{idFB} = PeriodicGuideJumpBVP(semiInfiniteDirection,...
                                   AApos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                                   AAneg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                                  AAint, volLinearIntg, mesh_int,...
-                                  spBint_pos, spBint_neg, opts);
+                                  jumpLinearIntg_FB, opts);
   end
 
   delete(pgbar);
@@ -259,28 +227,4 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   end
 
   U.negative = U.negative / sqrt(2*pi);
-
-  % Interior domain
-  % ///////////////
-  numCells = [1 1 1]; % Number of cells along each component
-  numCells(infiniteDirections) = 2*numCellsInfinite;
-  Nu = prod(numCells);
-
-  [I1, I2, I3] = ind2sub(numCells, 1:Nu);
-  pointsIds = [I1; I2; I3]; % 3-by-Nu
-  tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nu) - 1; % Ni-by-Nu
-  W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
-  U.interior = zeros(Nint, Nu);
-
-  for idFB = 1:numFBpoints
-    % The integral that defines the inverse Floquet-Bloch transform is computed
-    % using a rectangular rule.
-    exp_k_dot_x = exp(1i * mesh_int.points(:, infiniteDirections) * K(idFB, :).'); % N-by-1
-    exp_k_dot_tau = exp(1i * K(idFB, :) * tau); % 1-by-Nu
-    U_TFB = TFBU{idFB}.interior(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nu
-
-    U.interior = U.interior + W * (exp_k_dot_x * exp_k_dot_tau) .* U_TFB;
-  end
-
-  U.interior = U.interior / sqrt(2*pi);
 end

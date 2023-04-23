@@ -24,6 +24,7 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc, BlochType
 
   directions = unique(directions(:))';
   dFB = length(directions);
+  x = [x, zeros(size(x, 1), 3-size(x, 2))];
 
   % Default variables and preliminary verifications
   % ///////////////////////////////////////////////
