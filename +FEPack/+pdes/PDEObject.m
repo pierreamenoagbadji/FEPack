@@ -46,14 +46,25 @@ classdef PDEObject < FEPack.pdes.LinOperator % FEPack.FEPackObject
       op.alpha = {[0 0 0 1]};
     end
 
-    function op = grad(u)   % gradient
+    function op = grad(u, dim)   % gradient
+      if (dim < 1 || dim > 3)
+        error('La dimension doit être comprise entre 1 et 3; %d n''est donc pas autorisé.', dim);
+      end
       op = FEPack.pdes.LinOperator;
       op.is_dual = u.is_dual;
-      op.alpha = {[0 1 0 0; 0 0 1 0; 0 0 0 1]};
+      op.alpha = {[zeros(dim, 1), eye(dim), zeros(dim, 3-dim)]};
     end
 
-    function op = gradDir(u, vec)   % directional gradient
-      op = vec * grad(u);
+    function op = grad1(u)
+      op = grad(u, 1);
+    end
+
+    function op = grad2(u)
+      op = grad(u, 2);
+    end
+
+    function op = grad3(u)
+      op = grad(u, 3);
     end
 
     % For boundary conditions

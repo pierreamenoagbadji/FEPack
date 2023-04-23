@@ -33,7 +33,7 @@ structmesh = 0;
 basis_functions = 'Fourier';
 u = pdes.PDEObject; v = dual(u);
 % volBilinearIntg = @(muco, rhoco) (muco * grad(u)) * grad(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
-volBilinearIntg = @(muco, rhoco) (muco * gradDir(u, opts.cutmat)) * gradDir(v, opts.cutmat) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+volBilinearIntg = @(muco, rhoco) (muco * (opts.cutmat' * grad3(u))) * (opts.cutmat' * grad3(v)) - (opts.omega^2) * ((rhoco*u)*v);
 plot_coefficients = false;
 compareU = true;
 
@@ -217,7 +217,7 @@ ylim([-numCellsInfinite, numCellsInfinite]);
 %% Compare U in the rational case
 if (compareU)
   %
-  volBilinearIntg2D = @(muco, rhoco) (muco * grad(u)) * grad(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+  volBilinearIntg2D = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 
   BCstruct2Dpos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmin'));
   BCstruct2Dpos.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmax'));
