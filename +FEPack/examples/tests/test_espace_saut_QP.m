@@ -37,8 +37,8 @@ volBilinearIntg = @(muco, rhoco) (muco * (opts.cutmat' * grad3(u))) * (opts.cutm
 plot_coefficients = false;
 compareU = true;
 
-numNodes2D = 32;
-numNodes3D = 8;
+numNodes2D = 64;
+numNodes3D = 16;
 
 %% Parameters for the positive half-guide
 %  //////////////////////////////////////

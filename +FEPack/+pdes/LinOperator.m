@@ -70,15 +70,6 @@ classdef LinOperator < FEPack.FEPackObject
         res = copy(rhs);
 
         for idT = 1:length(rhs.alpha)
-          % if (length(lhs) == 1)
-          %   % If lhs is a scalar
-          %   lhsT = lhs;
-          % else
-          %   % If lhs is a vector or a matrix
-          %   numL = size(lhs, 2);
-          %   lhsT = [lhs, zeros(size(lhs, 1), size(rhs.alpha{idT}, 1)-numL)];
-          % end
-          % res.alpha{idT} = lhsT * rhs.alpha{idT};
           res.alpha{idT} = lhs * rhs.alpha{idT};
         end
 

@@ -25,31 +25,61 @@ classdef Form < FEPack.FEPackObject
   methods (Static)
 
     % Shape functions
-    function phis = shapeFunctions(P, dimension, alpha)
+    function phis = shapeFunctions(P, dimension, alpha, FEorder)
       % SHAPEFUNCTIONS Expression of derivatives of Lagrange P1 shape functions.
-      % phis = (P, d, alpha) where P is a point and alpha a (d+1)-vector,
-      % returns the linear combination
+      % phis = (P, d, alpha, FEorder) where P is a point and alpha 
+      % a (d+1)-vector, returns the linear combination
       %
-      %   alpha_1 * phi + \sum_{i = 1}^d alpha_{i+1} * (d_xi phi)
+      %   alpha_1 * phi(P) + \sum_{i = 1}^numDoF alpha_{i+1}(P) * (d_xi phi)
       %
-      % where phi is a Lagrange P1 shape function.
+      % where phi is a Lagrange shape function of order FEorder 
+      % associated to the reference element.
       %
+      % Local numbering for 1D Pk Lagrange elements
+      % 1 -- 2    1 -- 3 -- 2    1 -- 3 -- 4 -- 2    1 -- 3 -- 4 -- 5 -- 2
+      %  k = 1       k = 2          k = 3                    k = 4 
+      % 
       % INPUTS: * P, the points in which the shape functions are evaluated.
-      %           P is of size N-by-d
+      %           P is of size N-by-d.
       %         * dimension, the dimension of the points (1, 2, or 3)
       %         * alpha, a (d+1)-vector that contains the coefficients of the
       %           linear combination of the derivatives of the shape functions.
+      %         * FEorder, the order of the shape functions.
       %
       % OUTPUTS: * phis, (d+1)-by-N matrix containing the shape functions
+      
+      if (nargin < 4)
+        FEorder = 1;
+      end
 
       d = dimension;
 
-      N = size(P, 1);
-      phis = zeros(N, d+1);
+      
+      if (FEorder == 1)
+        
+        N = size(P, 1);
+        phis = zeros(N, d+1);
+        phis(:, 1) =     alpha(1) * (1 - P * ones(d, 1)) - ones(N, d) * alpha(2:d+1).';
+        phis(:, 2:end) = alpha(1) *      P               + kron(ones(N, 1), alpha(2:d+1));
+      
+      else
 
-      phis(:, 1) = alpha(1) * (1 - P * ones(d, 1)) - ones(N, d) * alpha(2:d+1).';
-      phis(:, 2:end) = alpha(1) * P + kron(ones(N, 1), alpha(2:d+1));
+        switch d
+        case 1
+          numDOFloc = FEorder + 1;
+          phis()
 
+        case 2
+          numDOFloc = (FEorder + 1) * (FEorder + 2) / 2;
+
+        case 3
+          numDOFloc = (FEorder + 1) * (FEorder + 2) * (FEorder + 3) / 6;
+
+        otherwise
+
+        end
+
+      end
     end
 
     % Elementary matrices
@@ -103,7 +133,6 @@ classdef Form < FEPack.FEPackObject
       % Preliminary adjustments and default values
       Lu = length(alpha_u); alpha_u = [alpha_u(:); zeros(4-Lu, 1)]; % Fill alpha_u with zeros
       Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
-      dP = size(P); P = [P; zeros(3-dP(1), dP(2))];
 
       if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
         fun = @(x) ones(size(x, 1), 1);
@@ -114,7 +143,7 @@ classdef Form < FEPack.FEPackObject
       Xquad = quadRule.points;
       Wquad = quadRule.weights;
 
-      % Map to reference element
+      % Mapping to reference element
       mapToRel.A = -P(1:volDim, 1) + P(1:volDim, 2:end);
       mapToRel.B =  P(1:volDim, 1);
       switch (domDim)
@@ -139,13 +168,19 @@ classdef Form < FEPack.FEPackObject
         beta = coeffs.(fieldnames(idI));
 
         if (domDim == volDim)
+
           % 0-order term and partial derivatives
           alpha = [beta(1), (mapToRel.A \ beta(2:domDim+1)).'];
+
         else
-          % 0-order term and tangential derivatives
-          % WARNING: this should be used with caution (at least validation
-          % needed)
-          alpha = [beta(1), beta(2:domDim+1).' ./ sqrt(diag(mapToRel.A' * mapToRel.A)).' ];
+
+          % only 0-order term is allowed for boundary integrals
+          if (max(abs(beta(2:domDim+1))) > eps)
+            error('Des dérivées ont été détectées dans le calcul d''une intégrale de surface. Ce cas n''est pas pris en charge.')
+          else
+            alpha = beta;
+          end
+
         end
 
         phis.(fieldnames(idI)) = FEPack.pdes.Form.shapeFunctions(Xquad.', domDim, alpha);
@@ -155,6 +190,110 @@ classdef Form < FEPack.FEPackObject
       Aelem = mapToRel.J * (phis.v' * diag(weightedFun) * phis.u);
 
     end
+    
+    % % Elementary matrices
+    % function Aelem = mat_elem(P, domDim, volDim, alpha_u, alpha_v, fun, quadRule)
+    %   % Compute elementary matrix whose components are given by
+    %   %
+    %   %  \int_{T} fun(x) * [alpha_1 * u + \sum_{i = 1}^d alpha_{i+1} * (d_xi u)]
+    %   %                  * [ beta_1 * v + \sum_{i = 1}^d  beta_{i+1} * (d_xi v)]
+    %   %
+    %   % where T is a given element, and where u and v are the Lagrange P1 basis
+    %   % functions associated to the nodes of the element T.
+    %   %
+    %   % INPUTS: * P, 3x(d+1) matrix containing the coordinates of the element's
+    %   %           vertices, where d is the domain dimension.
+    %   %         * domDim, the dimension of the domain.
+    %   %           WARNING: not to be confused with the dimension of the
+    %   %                    volumic geometry. For instance, for a segment,
+    %   %                    domDim = 1.
+    %   %         * volDim, the dimension of the volumic geometry
+    %   %         * alpha_u, a (d+1)-vector that contains the coefficients of the
+    %   %           linear combination of the unknown and its derivatives.
+    %   %         * alpha_v, a (d+1)-vector that contains the coefficients of the
+    %   %           linear combination of the test function and its derivatives.
+    %   %         * fun (function handle) the coefficient in the integral
+    %   %           WARNING: fun must take in argument a nx3 matrix, and return
+    %   %                    a nx1 vector.
+    %   %         * quadRule (QuadratureObject) is optional. For more information,
+    %   %           see +tools/QuadratureObject.m
+    %   %
+    %   % OUTPUTS: Aelem, a (domDim+1)-by-(domDim+1) matrix.
+
+    %   % Each point must have volDim coordinates at least and 3 coordinates at most
+    %   if ((size(P, 1) < volDim) || (size(P, 1) > 3))
+    %     error(['Les points doivent un nombre de coordonnées égal à 3 au ',...
+    %            'plus, et à la dimension volumique (', int2str(volDim), ') au moins.']);
+    %   end
+
+    %   % The domain dimension should match the number of points in the element
+    %   if (domDim + 1 ~= size(P, 2))
+    %     error(['La dimension du domaine + 1 (', int2str(domDim + 1), ') et ',...
+    %            'le nombre de points (', int2str(size(P, 2)), ') de l''élément ',...
+    %            'doivent coincider.']);
+    %   end
+
+    %   % The domain dimension should not exceed the volumic dimension
+    %   if (domDim > volDim)
+    %     error(['La dimension du domaine (', int2str(domDim), ') ne peut ',...
+    %            'pas être supérieure à la dimension volumique (', int2str(volDim), ')']);
+    %   end
+
+    %   % Preliminary adjustments and default values
+    %   Lu = length(alpha_u); alpha_u = [alpha_u(:); zeros(4-Lu, 1)]; % Fill alpha_u with zeros
+    %   Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
+    %   dP = size(P); P = [P; zeros(3-dP(1), dP(2))];
+
+    %   if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
+    %     fun = @(x) ones(size(x, 1), 1);
+    %   end
+    %   if (nargin < 7)
+    %     quadRule = FEPack.tools.QuadratureObject(domDim);
+    %   end
+    %   Xquad = quadRule.points;
+    %   Wquad = quadRule.weights;
+
+    %   % Map to reference element
+    %   mapToRel.A = -P(1:volDim, 1) + P(1:volDim, 2:end);
+    %   mapToRel.B =  P(1:volDim, 1);
+    %   switch (domDim)
+    %   case 1
+    %     mapToRel.J = sqrt((P(:, 2) - P(:, 1))' * (P(:, 2) - P(:, 1)));
+    %   case 2
+    %     Tu = cross(P(:, 2) - P(:, 1), P(:, 3) - P(:, 1));
+    %     mapToRel.J = sqrt(Tu' * Tu);
+    %   case 3
+    %     mapToRel.J = abs(det(mapToRel.A));
+    %   end
+
+    %   % Weighted function
+    %   weightedFun = Wquad .* fun((mapToRel.A * Xquad + mapToRel.B).').';
+
+    %   % Shape functions
+    %   coeffs.u = alpha_u;
+    %   coeffs.v = alpha_v;
+    %   fieldnames = ['u'; 'v'];
+
+    %   for idI = 1:2
+    %     beta = coeffs.(fieldnames(idI));
+
+    %     if (domDim == volDim)
+    %       % 0-order term and partial derivatives
+    %       alpha = [beta(1), (mapToRel.A \ beta(2:domDim+1)).'];
+    %     else
+    %       % 0-order term and tangential derivatives
+    %       % WARNING: this should be used with caution (at least validation
+    %       % needed)
+    %       alpha = [beta(1), beta(2:domDim+1).' ./ sqrt(diag(mapToRel.A' * mapToRel.A)).' ];
+    %     end
+
+    %     phis.(fieldnames(idI)) = FEPack.pdes.Form.shapeFunctions(Xquad.', domDim, alpha);
+    %   end
+
+    %   % Compute the elementary matrix
+    %   Aelem = mapToRel.J * (phis.v' * diag(weightedFun) * phis.u);
+
+    % end
 
     % Matrix assembly
     function Aglob = assembleFEmatrices(domain, Aloc)
@@ -172,16 +311,16 @@ classdef Form < FEPack.FEPackObject
       %
       % OUTPUTS: * Aglob, a N-by-N matrix, where N is the number of DOFs.
 
-      N = domain.mesh.numPoints;   % Number of degrees of freedom
-      domDim = domain.dimension;
-      dd = (domDim + 1) * (domDim + 1);
+      N = domain.mesh.numDOFglo;      % Total number of degrees of freedom
+      numDOFloc = domain.numDOFloc;   % Number of degrees of freedom associated to an element of the domain
+      dd = numDOFloc * numDOFloc;
 
       II = zeros(domain.numElts*dd, 1);
       JJ = zeros(domain.numElts*dd, 1);
       VV = zeros(domain.numElts*dd, 1);
 
-      index_II = kron(ones(domDim + 1, 1), (1:domDim + 1).');
-      index_JJ = kron((1:domDim + 1).', ones(domDim + 1, 1));
+      index_II = kron(ones(numDOFloc, 1), (1:numDOFloc).');
+      index_JJ = kron((1:numDOFloc).', ones(numDOFloc, 1));
 
       for ielts = 1:domain.numElts
 
@@ -195,7 +334,7 @@ classdef Form < FEPack.FEPackObject
         index = (dd*(ielts-1)+1):(dd*(ielts-1)+dd);
         II(index) = domain.elements(ielts, index_II);
         JJ(index) = domain.elements(ielts, index_JJ);
-        VV(index) = Aelem(:);
+        VV(index) = VV(index) + Aelem(:);
 
       end
 
@@ -276,7 +415,7 @@ classdef Form < FEPack.FEPackObject
       end
 
       non_null_coeffs = @(Au, Av) (norm(Au, Inf) > eps) && (norm(Av, Inf) > eps);
-      N = dom.mesh.numPoints;
+      N = dom.mesh.numDOFglo;
       AA = sparse(N, N);
 
       if (default_fun)

@@ -4,7 +4,7 @@ function U = PeriodicGuideJumpBVP(infiniteDirection,...
                                   jumpLinearIntg, opts)
 
   % PeriodicSpaceBVP
-  warning('Uniquement Dirichlet (saut Neumann)');
+  % warning('Uniquement Dirichlet (saut Neumann)');
 
   % Preliminary set ups
   opts.solBasis = true;

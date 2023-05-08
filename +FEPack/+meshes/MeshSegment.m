@@ -22,13 +22,14 @@ classdef MeshSegment < FEPack.meshes.Mesh
       % MeshSegment constructor for segment mesh
       % The first argument (string) indicates the type of mesh:
       %     - for a uniform mesh, the syntax is
-      %         mesh = meshes.MeshSegment('uniform', a, b, N, side_names, name)
+      %         mesh = meshes.MeshSegment('uniform', a, b, N, FEorder, side_names, name)
       %       a, b are the bounds of the segment and N the number of nodes
       %
       %     - for a mesh generated from points, the syntax is
-      %         mesh = meshes.MeshSegment('vertices', points, side_names, name)
+      %         mesh = meshes.MeshSegment('vertices', points, FEorder, side_names, name)
       %       vertices is a list of the nodes
       %
+      %     FEorder (integer) is the order of FE;
       %     name (optional) is the name of the mesh
       if (nargin < 1)
 
@@ -45,14 +46,19 @@ classdef MeshSegment < FEPack.meshes.Mesh
         points = sort(linspace(varargin{2}, varargin{3}, numPoints).');
 
         % Give a random name if nothing is specified
-        if (nargin < 6)
+        if (nargin < 7)
           randomName(mesh);
         end
 
-        if (nargin < 5)
+        if (nargin < 6)
           side_names = {'xmin'; 'xmax'};
         else
-          side_names = varargin{5};
+          side_names = varargin{6};
+        end
+
+        % Default FE order
+        if (nargin < 5)
+          FEorder = 1;
         end
 
       elseif strcmpi(varargin{1}, 'vertices')
@@ -62,14 +68,19 @@ classdef MeshSegment < FEPack.meshes.Mesh
         numPoints = length(points);
 
         % Give a random name if nothing is specified
-        if (nargin < 4)
+        if (nargin < 5)
           randomName(mesh);
         end
 
-        if (nargin < 3)
+        if (nargin < 4)
           side_names = {'xmin'; 'xmax'};
         else
-          side_names = varargin{3};
+          side_names = varargin{4};
+        end
+
+        % Default FE order
+        if (nargin < 3)
+          FEorder = 1;
         end
 
       else
@@ -88,6 +99,7 @@ classdef MeshSegment < FEPack.meshes.Mesh
       mesh.segments = [(1:numPoints-1).', (2:numPoints).'];
       mesh.refPoints = [1; zeros(numPoints-2, 1); 2];
       mesh.refSegments = zeros(mesh.numSegments, 1);
+      mesh.attachFEorder(FEorder);
       mesh.maps{1} = numPoints;
       mesh.maps{2} = 1;
       numD = [2; 1]; % The domains are ordered as : xmax - xmin

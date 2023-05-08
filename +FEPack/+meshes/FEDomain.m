@@ -45,6 +45,10 @@ classdef FEDomain < FEPack.FEPackObject
     %
     % %> @brief Indices of the triangles composing the domain
     % triangles = [];
+    
+    %> @brief Number of degreees of freedom associated to
+    %> one element composing the domain
+    numDOFloc = [];
 
   end
 
@@ -59,17 +63,29 @@ classdef FEDomain < FEPack.FEPackObject
 
       switch (dimension)
       case 0
+        
         FEdom.idelements = find(mesh.refPoints == reference);
         FEdom.elements = FEdom.idelements;
+        FEdom.numDOFloc = 1;
+        
       case 1
+        
         FEdom.idelements = find(mesh.refSegments == reference);
         FEdom.elements = mesh.segments(FEdom.idelements, :);
+        FEdom.numDOFloc = mesh.FEorder + 1;
+        
       case 2
+        
         FEdom.idelements = find(mesh.refTriangles == reference);
         FEdom.elements = mesh.triangles(FEdom.idelements, :);
+        FEdom.numDOFloc = (mesh.FEorder + 1)*(mesh.FEorder + 2)/2;
+        
       case 3
+        
         FEdom.idelements = find(mesh.refTetrahedra == reference);
         FEdom.elements = mesh.tetrahedra(FEdom.idelements, :);
+        FEdom.numDOFloc = (mesh.FEorder + 1)*(mesh.FEorder + 2)*(mesh.FEorder + 3)/6;
+        
       end
       FEdom.numElts = size(FEdom.elements, 1);
 

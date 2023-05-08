@@ -21,9 +21,9 @@ G = @(x) FEPack.tools.cutoff(x(:, 2), -1.0, 1.0);
 structmesh = 0;
 basis_functions = 'Lagrange';
 u = pdes.PDEObject; v = dual(u);
-% volBilinearIntg = @(muco, rhoco) (muco * grad(u)) * grad(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
-opts.cutvec = [cos(pi/6), sin(pi/6)];
-volBilinearIntg = @(muco, rhoco) (muco * gradDir(u, opts.cutvec)) * gradDir(v, opts.cutvec) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+volBilinearIntg = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+% opts.cutvec = [cos(pi/6); sin(pi/6)];
+% volBilinearIntg = @(muco, rhoco) (muco * (opts.cutvec' * grad2(u))) * (opts.cutvec' * grad2(v)) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 plot_coefficients = false;
 
 N = 32;
@@ -31,7 +31,7 @@ N = 32;
 %% Parameters for the positive half-guide
 %  //////////////////////////////////////
 BB = [0, 1; 0, 1]; BB(coSemiInf, 2) = +1;
-mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N, 1);
 
 if strcmpi(basis_functions, 'Lagrange')
   BCstruct_pos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_pos.domains{2*coSemiInf});
@@ -51,7 +51,7 @@ volBilinearIntg_pos = volBilinearIntg(mu_pos, rho_pos);
 %% Parameters for the negative half-guide
 %  //////////////////////////////////////
 BB = [0, 1; 0, 1]; BB(coSemiInf, 2) = -1;
-mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N, 1);
 
 if strcmpi(basis_functions, 'Lagrange')
   BCstruct_neg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_neg.domains{2*coSemiInf});

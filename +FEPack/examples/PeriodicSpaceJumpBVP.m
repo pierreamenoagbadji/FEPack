@@ -137,6 +137,11 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   end
 
   jumpLinearIntg_FB = copy(jumpLinearIntg);
+  % jumpLinearIntg_FB = cell(numFBpoints, 1);
+  % parfor idFB = 1:numFBpoints
+  %   jumpLinearIntg_FB{idFB} = copy(jumpLinearIntg);
+  %   jumpLinearIntg_FB{idFB}.fun = {@(x) BlochTransform(x, K(idFB, :), jumpLinearIntg.fun{1}, infiniteDirections)};
+  % end
 
   % Solve a family of half-guide problems
   % /////////////////////////////////////

@@ -94,6 +94,12 @@ classdef Mesh < FEPack.FEPackObject
     %> the domains facing each other
     mapdomains =  [];
 
+    %> @brief Lagrange FE order
+    FEorder = [];
+
+    %> @brief Total number of degreees of freedom
+    numDOFglo = [];
+
   end
 
   methods (Abstract)
@@ -120,6 +126,28 @@ classdef Mesh < FEPack.FEPackObject
 
       % Return the corresponding domain
       dom = mesh.domains{domId};
+
+    end
+
+    %> @brief Choose the order of Lagrange FE
+    function attachFEorder(mesh, order)
+
+      if (order < 1 || order > 2)
+        error('L''ordre des éléments finis doit être compris entre 1 et 2.');
+      end
+
+      mesh.FEorder = order;
+
+      switch (mesh.dimension)
+      case 1
+        mesh.numDOFglo = mesh.numPoints + (order - 1)*mesh.numSegments;
+      case 2
+        mesh.numDOFglo = mesh.numPoints +  (order - 1)*mesh.numSegments + ((order - 1)*(order - 2)/2)*mesh.numTriangles;
+      case 3
+        mesh.numDOFglo = mesh.numPoints +  (order - 1)*mesh.numSegments + ((order - 1)*(order - 2)/2)*mesh.numTriangles + ((order - 1)*(order - 2)*(order - 3)/6)*mesh.numTetrahedra;
+      otherwise
+        error('La dimension du maillage doit être comprise entre 1 et 3.');
+      end
 
     end
 
