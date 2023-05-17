@@ -34,10 +34,6 @@ classdef Form < FEPack.FEPackObject
       %
       % where phi is a Lagrange shape function of order FEorder 
       % associated to the reference element.
-      %
-      % Local numbering for 1D Pk Lagrange elements
-      % 1 -- 2    1 -- 3 -- 2    1 -- 3 -- 4 -- 2    1 -- 3 -- 4 -- 5 -- 2
-      %  k = 1       k = 2          k = 3                    k = 4 
       % 
       % INPUTS: * P, the points in which the shape functions are evaluated.
       %           P is of size N-by-d.
@@ -64,133 +60,24 @@ classdef Form < FEPack.FEPackObject
       
       else
 
-        switch d
-        case 1
-          numDOFloc = FEorder + 1;
-          phis()
+        % switch d
+        % case 1
+        %   numDOFloc = FEorder + 1;
+        %   phis()
 
-        case 2
-          numDOFloc = (FEorder + 1) * (FEorder + 2) / 2;
+        % case 2
+        %   numDOFloc = (FEorder + 1) * (FEorder + 2) / 2;
 
-        case 3
-          numDOFloc = (FEorder + 1) * (FEorder + 2) * (FEorder + 3) / 6;
+        % case 3
+        %   numDOFloc = (FEorder + 1) * (FEorder + 2) * (FEorder + 3) / 6;
 
-        otherwise
+        % otherwise
 
-        end
+        % end
 
       end
     end
 
-    % Elementary matrices
-    function Aelem = mat_elem(P, domDim, volDim, alpha_u, alpha_v, fun, quadRule)
-      % Compute elementary matrix whose components are given by
-      %
-      %  \int_{T} fun(x) * [alpha_1 * u + \sum_{i = 1}^d alpha_{i+1} * (d_xi u)]
-      %                  * [ beta_1 * v + \sum_{i = 1}^d  beta_{i+1} * (d_xi v)]
-      %
-      % where T is a given element, and where u and v are the Lagrange P1 basis
-      % functions associated to the nodes of the element T.
-      %
-      % INPUTS: * P, 3x(d+1) matrix containing the coordinates of the element's
-      %           vertices, where d is the domain dimension.
-      %         * domDim, the dimension of the domain.
-      %           WARNING: not to be confused with the dimension of the
-      %                    volumic geometry. For instance, for a segment,
-      %                    domDim = 1.
-      %         * volDim, the dimension of the volumic geometry
-      %         * alpha_u, a (d+1)-vector that contains the coefficients of the
-      %           linear combination of the unknown and its derivatives.
-      %         * alpha_v, a (d+1)-vector that contains the coefficients of the
-      %           linear combination of the test function and its derivatives.
-      %         * fun (function handle) the coefficient in the integral
-      %           WARNING: fun must take in argument a nx3 matrix, and return
-      %                    a nx1 vector.
-      %         * quadRule (QuadratureObject) is optional. For more information,
-      %           see +tools/QuadratureObject.m
-      %
-      % OUTPUTS: Aelem, a (domDim+1)-by-(domDim+1) matrix.
-
-      % Each point must have volDim coordinates at least and 3 coordinates at most
-      if ((size(P, 1) < volDim) || (size(P, 1) > 3))
-        error(['Les points doivent un nombre de coordonnées égal à 3 au ',...
-               'plus, et à la dimension volumique (', int2str(volDim), ') au moins.']);
-      end
-
-      % The domain dimension should match the number of points in the element
-      if (domDim + 1 ~= size(P, 2))
-        error(['La dimension du domaine + 1 (', int2str(domDim + 1), ') et ',...
-               'le nombre de points (', int2str(size(P, 2)), ') de l''élément ',...
-               'doivent coincider.']);
-      end
-
-      % The domain dimension should not exceed the volumic dimension
-      if (domDim > volDim)
-        error(['La dimension du domaine (', int2str(domDim), ') ne peut ',...
-               'pas être supérieure à la dimension volumique (', int2str(volDim), ')']);
-      end
-
-      % Preliminary adjustments and default values
-      Lu = length(alpha_u); alpha_u = [alpha_u(:); zeros(4-Lu, 1)]; % Fill alpha_u with zeros
-      Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
-
-      if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
-        fun = @(x) ones(size(x, 1), 1);
-      end
-      if (nargin < 7)
-        quadRule = FEPack.tools.QuadratureObject(domDim);
-      end
-      Xquad = quadRule.points;
-      Wquad = quadRule.weights;
-
-      % Mapping to reference element
-      mapToRel.A = -P(1:volDim, 1) + P(1:volDim, 2:end);
-      mapToRel.B =  P(1:volDim, 1);
-      switch (domDim)
-      case 1
-        mapToRel.J = sqrt((P(:, 2) - P(:, 1))' * (P(:, 2) - P(:, 1)));
-      case 2
-        Tu = cross(P(:, 2) - P(:, 1), P(:, 3) - P(:, 1));
-        mapToRel.J = sqrt(Tu' * Tu);
-      case 3
-        mapToRel.J = abs(det(mapToRel.A));
-      end
-
-      % Weighted function
-      weightedFun = Wquad .* fun((mapToRel.A * Xquad + mapToRel.B).').';
-
-      % Shape functions
-      coeffs.u = alpha_u;
-      coeffs.v = alpha_v;
-      fieldnames = ['u'; 'v'];
-
-      for idI = 1:2
-        beta = coeffs.(fieldnames(idI));
-
-        if (domDim == volDim)
-
-          % 0-order term and partial derivatives
-          alpha = [beta(1), (mapToRel.A \ beta(2:domDim+1)).'];
-
-        else
-
-          % only 0-order term is allowed for boundary integrals
-          if (max(abs(beta(2:domDim+1))) > eps)
-            error('Des dérivées ont été détectées dans le calcul d''une intégrale de surface. Ce cas n''est pas pris en charge.')
-          else
-            alpha = beta;
-          end
-
-        end
-
-        phis.(fieldnames(idI)) = FEPack.pdes.Form.shapeFunctions(Xquad.', domDim, alpha);
-      end
-
-      % Compute the elementary matrix
-      Aelem = mapToRel.J * (phis.v' * diag(weightedFun) * phis.u);
-
-    end
-    
     % % Elementary matrices
     % function Aelem = mat_elem(P, domDim, volDim, alpha_u, alpha_v, fun, quadRule)
     %   % Compute elementary matrix whose components are given by
@@ -242,7 +129,6 @@ classdef Form < FEPack.FEPackObject
     %   % Preliminary adjustments and default values
     %   Lu = length(alpha_u); alpha_u = [alpha_u(:); zeros(4-Lu, 1)]; % Fill alpha_u with zeros
     %   Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
-    %   dP = size(P); P = [P; zeros(3-dP(1), dP(2))];
 
     %   if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
     %     fun = @(x) ones(size(x, 1), 1);
@@ -253,7 +139,7 @@ classdef Form < FEPack.FEPackObject
     %   Xquad = quadRule.points;
     %   Wquad = quadRule.weights;
 
-    %   % Map to reference element
+    %   % Mapping to reference element
     %   mapToRel.A = -P(1:volDim, 1) + P(1:volDim, 2:end);
     %   mapToRel.B =  P(1:volDim, 1);
     %   switch (domDim)
@@ -278,13 +164,19 @@ classdef Form < FEPack.FEPackObject
     %     beta = coeffs.(fieldnames(idI));
 
     %     if (domDim == volDim)
+
     %       % 0-order term and partial derivatives
     %       alpha = [beta(1), (mapToRel.A \ beta(2:domDim+1)).'];
+
     %     else
-    %       % 0-order term and tangential derivatives
-    %       % WARNING: this should be used with caution (at least validation
-    %       % needed)
-    %       alpha = [beta(1), beta(2:domDim+1).' ./ sqrt(diag(mapToRel.A' * mapToRel.A)).' ];
+
+    %       % only 0-order term is allowed for boundary integrals
+    %       if (max(abs(beta(2:domDim+1))) > eps)
+    %         error('Des dérivées ont été détectées dans le calcul d''une intégrale de surface. Ce cas n''est pas pris en charge.')
+    %       else
+    %         alpha = beta;
+    %       end
+
     %     end
 
     %     phis.(fieldnames(idI)) = FEPack.pdes.Form.shapeFunctions(Xquad.', domDim, alpha);
@@ -294,6 +186,110 @@ classdef Form < FEPack.FEPackObject
     %   Aelem = mapToRel.J * (phis.v' * diag(weightedFun) * phis.u);
 
     % end
+    
+    % Elementary matrices
+    function Aelem = mat_elem(P, domDim, volDim, alpha_u, alpha_v, fun, quadRule)
+      % Compute elementary matrix whose components are given by
+      %
+      %  \int_{T} fun(x) * [alpha_1 * u + \sum_{i = 1}^d alpha_{i+1} * (d_xi u)]
+      %                  * [ beta_1 * v + \sum_{i = 1}^d  beta_{i+1} * (d_xi v)]
+      %
+      % where T is a given element, and where u and v are the Lagrange P1 basis
+      % functions associated to the nodes of the element T.
+      %
+      % INPUTS: * P, 3x(d+1) matrix containing the coordinates of the element's
+      %           vertices, where d is the domain dimension.
+      %         * domDim, the dimension of the domain.
+      %           WARNING: not to be confused with the dimension of the
+      %                    volumic geometry. For instance, for a segment,
+      %                    domDim = 1.
+      %         * volDim, the dimension of the volumic geometry
+      %         * alpha_u, a (d+1)-vector that contains the coefficients of the
+      %           linear combination of the unknown and its derivatives.
+      %         * alpha_v, a (d+1)-vector that contains the coefficients of the
+      %           linear combination of the test function and its derivatives.
+      %         * fun (function handle) the coefficient in the integral
+      %           WARNING: fun must take in argument a nx3 matrix, and return
+      %                    a nx1 vector.
+      %         * quadRule (QuadratureObject) is optional. For more information,
+      %           see +tools/QuadratureObject.m
+      %
+      % OUTPUTS: Aelem, a (domDim+1)-by-(domDim+1) matrix.
+
+      % Each point must have volDim coordinates at least and 3 coordinates at most
+      if ((size(P, 1) < volDim) || (size(P, 1) > 3))
+        error(['Les points doivent un nombre de coordonnées égal à 3 au ',...
+               'plus, et à la dimension volumique (', int2str(volDim), ') au moins.']);
+      end
+
+      % The domain dimension should match the number of points in the element
+      if (domDim + 1 ~= size(P, 2))
+        error(['La dimension du domaine + 1 (', int2str(domDim + 1), ') et ',...
+               'le nombre de points (', int2str(size(P, 2)), ') de l''élément ',...
+               'doivent coincider.']);
+      end
+
+      % The domain dimension should not exceed the volumic dimension
+      if (domDim > volDim)
+        error(['La dimension du domaine (', int2str(domDim), ') ne peut ',...
+               'pas être supérieure à la dimension volumique (', int2str(volDim), ')']);
+      end
+
+      % Preliminary adjustments and default values
+      Lu = length(alpha_u); alpha_u = [alpha_u(:); zeros(4-Lu, 1)]; % Fill alpha_u with zeros
+      Lv = length(alpha_v); alpha_v = [alpha_v(:); zeros(4-Lv, 1)]; % Fill alpha_v with zeros
+      dP = size(P); P = [P; zeros(3-dP(1), dP(2))];
+
+      if ((nargin < 6) || (nargin >= 6 && isempty(fun)))
+        fun = @(x) ones(size(x, 1), 1);
+      end
+      if (nargin < 7)
+        quadRule = FEPack.tools.QuadratureObject(domDim);
+      end
+      Xquad = quadRule.points;
+      Wquad = quadRule.weights;
+
+      % Map to reference element
+      mapToRel.A = -P(1:volDim, 1) + P(1:volDim, 2:end);
+      mapToRel.B =  P(1:volDim, 1);
+      switch (domDim)
+      case 1
+        mapToRel.J = sqrt((P(:, 2) - P(:, 1))' * (P(:, 2) - P(:, 1)));
+      case 2
+        Tu = cross(P(:, 2) - P(:, 1), P(:, 3) - P(:, 1));
+        mapToRel.J = sqrt(Tu' * Tu);
+      case 3
+        mapToRel.J = abs(det(mapToRel.A));
+      end
+
+      % Weighted function
+      weightedFun = Wquad .* fun((mapToRel.A * Xquad + mapToRel.B).').';
+
+      % Shape functions
+      coeffs.u = alpha_u;
+      coeffs.v = alpha_v;
+      fieldnames = ['u'; 'v'];
+
+      for idI = 1:2
+        beta = coeffs.(fieldnames(idI));
+
+        if (domDim == volDim)
+          % 0-order term and partial derivatives
+          alpha = [beta(1), (mapToRel.A \ beta(2:domDim+1)).'];
+        else
+          % 0-order term and tangential derivatives
+          % WARNING: this should be used with caution (at least validation
+          % needed)
+          alpha = [beta(1), beta(2:domDim+1).' ./ sqrt(diag(mapToRel.A' * mapToRel.A)).' ];
+        end
+
+        phis.(fieldnames(idI)) = FEPack.pdes.Form.shapeFunctions(Xquad.', domDim, alpha);
+      end
+
+      % Compute the elementary matrix
+      Aelem = mapToRel.J * (phis.v' * diag(weightedFun) * phis.u);
+
+    end
 
     % Matrix assembly
     function Aglob = assembleFEmatrices(domain, Aloc)
@@ -460,7 +456,7 @@ classdef Form < FEPack.FEPackObject
 
               % Elementary matrix
               fun = @(P) EI(P) * varargin{4}(P) * EJ(P); % (Icoo, Jcoo)-component of matrix function
-              Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), fun, varargin{5:end});
+              Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Jcoo, :), alpha_v(Icoo, :), fun, varargin{5:end});
 
               % Update the matrix
               AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
@@ -560,7 +556,86 @@ classdef Form < FEPack.FEPackObject
       AA = FEPack.pdes.Form.global_matrix(varargin{1}, alpha, alpha, varargin{2:end});
     end
 
-    function AA = intg_TU_V(domain, Tmat, representation)
+    % function AA = intg_TU_V(domain, Tmat, representation)
+    %   % function AA = INTG_TU_V(domain, Tmat, space, representation)
+    %   % Computes the FE matrix associated to the integral
+    %   %
+    %   %       \intg_domain (Tu) * v
+    %   %
+    %   % where T is an operator applied to u. T is represented by a matrix by
+    %   % means of a spectral basis (phi_k)_k. The components of the matrix are
+    %   % the Tmat_{k,l} which are either given by
+    %   %
+    %   %       (1) weak evaluation: Tmat_{k,l} = <Tphi_l, phi_k>; or
+    %   %
+    %   %       (2) projection and representation:
+    %   %             Proj(Tphi_l) = Tmat_{1,l} phi_1 + .... + Tmat_{N, l} phi_N
+    %   %          where Proj(Tphi_l) is the projection of phi_l in the (phi_k)_k.
+    %   %
+    %   % INPUTS: * domain, FEPack.meshes.FEDomain object, the domain on which
+    %   %           the integrals are evaluated.
+    %   %         * Tmat, a matrix that represents the operator applied to the
+    %   %           unknown.
+    %   %         * representation, a string between 'weak evaluation' and
+    %   %           'projection', which specifies the definition of T.
+    %   %
+    %   % OUTPUTS: * AA, a N-by-N matrix, where N is the number of DOFs.
+
+    %   if isa(Tmat, 'function_handle')
+
+    %     % The operator is a multiplication by a function
+    %     AA = FEPack.pdes.Form.intg_U_V(domain, Tmat);
+
+    %   elseif (length(Tmat) == 1)
+
+    %     % Trivial case of multiplication by a scalar
+    %     AA = Tmat * FEPack.pdes.Form.intg_U_V(domain);
+      
+    %   else
+
+    %     % The operator is represented by a matrix
+    %     % 1. Make sure there is a spectral basis attached to the domain
+    %     if isempty(domain.spectralBasis)
+          
+    %       error('Pour évaluer faiblement un opérateur, une base spectrale doit être attachée au domaine.');
+
+    %     end
+
+    %     % 2. The size of the matrix should coincide with the size of the basis 
+    %     if ~(size(Tmat) == domain.spectralBasis.numBasis)
+
+    %       error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de  base spectrale.');
+        
+    %     end
+
+    %     if strcmpi(representation, 'projection')
+
+    %       % Deduce the weakly evaluated matrix from the projected one
+    %       Tmat = domain.spectralBasis.massmat * Tmat;
+
+    %     elseif ~strcmpi(representation, 'weak evaluation')
+
+    %       % Only 'projection' and 'weak evaluation' are allowed
+    %       error(['La variable evaluation ne peut valoir que ''weak ',...
+    %              'evaluation'' ou ''projection''.']);
+
+    %     end
+
+    %     % If not done already, compute the matrices associated to
+    %     % the spectral basis
+    %     if isempty(domain.spectralBasis.massmat)
+    %       domain.spectralBasis.computeBasisMatrices(0);
+    %     end
+
+    %     % Deduce the matrix
+    %     N = domain.mesh.numPoints;
+    %     AA = sparse(N, N);
+    %     AA(domain.IdPoints, domain.IdPoints) = domain.spectralBasis.FE_to_spectral' * Tmat * domain.spectralBasis.FE_to_spectral;
+        
+    %   end
+      
+    % end
+    function AA = intg_TU_V(domain, Tmat, spectralB, representation)
       % function AA = INTG_TU_V(domain, Tmat, space, representation)
       % Computes the FE matrix associated to the integral
       %
@@ -580,6 +655,7 @@ classdef Form < FEPack.FEPackObject
       %           the integrals are evaluated.
       %         * Tmat, a matrix that represents the operator applied to the
       %           unknown.
+      %         * spectralB, SpectralBasis object.
       %         * representation, a string between 'weak evaluation' and
       %           'projection', which specifies the definition of T.
       %
@@ -594,28 +670,17 @@ classdef Form < FEPack.FEPackObject
 
         % Trivial case of multiplication by a scalar
         AA = Tmat * FEPack.pdes.Form.intg_U_V(domain);
-      
+
+      elseif ~(size(Tmat) == spectralB.numBasis)
+
+        error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de base spectrale.');
+
       else
-
-        % The operator is represented by a matrix
-        % 1. Make sure there is a spectral basis attached to the domain
-        if isempty(domain.spectralBasis)
-          
-          error('Pour évaluer faiblement un opérateur, une base spectrale doit être attachée au domaine.');
-
-        end
-
-        % 2. The size of the matrix should coincide with the size of the basis 
-        if ~(size(Tmat) == domain.spectralBasis.numBasis)
-
-          error('Si T est une matrice, alors sa taille doit être égale au nombre de fonctions de  base spectrale.');
-        
-        end
 
         if strcmpi(representation, 'projection')
 
           % Deduce the weakly evaluated matrix from the projected one
-          Tmat = domain.spectralBasis.massmat * Tmat;
+          Tmat = spectralB.massmat * Tmat;
 
         elseif ~strcmpi(representation, 'weak evaluation')
 
@@ -627,17 +692,17 @@ classdef Form < FEPack.FEPackObject
 
         % If not done already, compute the matrices associated to
         % the spectral basis
-        if isempty(domain.spectralBasis.massmat)
-          domain.spectralBasis.computeBasisMatrices(0);
+        if isempty(spectralB.massmat)
+          spectralB.computeBasisMatrices(0);
         end
 
         % Deduce the matrix
         N = domain.mesh.numPoints;
         AA = sparse(N, N);
-        AA(domain.IdPoints, domain.IdPoints) = domain.spectralBasis.FE_to_spectral' * Tmat * domain.spectralBasis.FE_to_spectral;
-        
+        AA(domain.IdPoints, domain.IdPoints) = spectralB.FE_to_spectral' * Tmat * spectralB.FE_to_spectral;
+
       end
-      
+
     end
 
     function AA = intg(varargin)
