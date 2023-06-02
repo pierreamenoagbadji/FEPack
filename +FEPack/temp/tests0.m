@@ -41,33 +41,8 @@
 
 
 %%
-p = 30;
-refElt = FEPack.spaces.ReferenceElement(3, p)
-figure;
-plot3([0, 1], [0, 0], [0, 0]); hold on;
-plot3([0, 0], [0, 1], [0, 0]);
-plot3([0, 0], [0, 0], [0, 1]);
-plot3([0, 1], [1, 0], [0, 0]);
-plot3([0, 1], [0, 0], [1, 0]);
-plot3([0, 0], [1, 0], [0, 1]);
-view(-169, 2);% (75, 20);
-% fill3([1, 0, 0], [0, 1, 0], [0, 0, 1], [255, 199, 199]/255)
-% fill3([0, 0, 0], [0, 1, 0], [0, 0, 1], [199, 255, 199]/255)
-
-for idE = 1:refElt.numDOFloc
-
-  % text(refElt.points(idE, 1), refElt.points(idE, 2), refElt.points(idE, 3), int2str(idE), 'color', 'r');
-  plot3(refElt.points(idE, 1), refElt.points(idE, 2), refElt.points(idE, 3), 'ro', 'markersize', 10, 'markerfacecolor', 'r');
-  % pause;
-  
-  hold on;
-
-end
-xlabel('x');
-ylabel('y');
-%
-Pts = zeros(0, 3);
-
+% p = 30;
+% refElt = FEPack.spaces.ReferenceElement(3, p)
 % figure;
 % plot3([0, 1], [0, 0], [0, 0]); hold on;
 % plot3([0, 0], [0, 1], [0, 0]);
@@ -75,20 +50,45 @@ Pts = zeros(0, 3);
 % plot3([0, 1], [1, 0], [0, 0]);
 % plot3([0, 1], [0, 0], [1, 0]);
 % plot3([0, 0], [1, 0], [0, 1]);
-view(-169, 2);% (75, 20);
-for i = 1:(p+1)
-  for j = 1:p+2-i
-    for k = 1:p+3-i-j
-      Pts = [Pts; [(i-1.0)/p, (j-1.0)/p, (k-1.0)/p]];
-      % plot3((i-1.0)/p, (j-1.0)/p, (k-1.0)/p, 'ro', 'markersize', 10, 'markerfacecolor', 'r');
-      % hold on;
-      % text((i-1.0)/p, (j-1.0)/p, (k-1.0)/p, ['(', int2str(i), ', ', int2str(j), ', ', int2str(k), ')']);
-    end
-  end
-end
-
-% max(max(abs(sort(Pts) - sort(refElt.points(1:refElt.numDOFloc, :)))))
-max(max(abs(sort(Pts) - sort(refElt.points))))
+% view(-169, 2);% (75, 20);
+% % fill3([1, 0, 0], [0, 1, 0], [0, 0, 1], [255, 199, 199]/255)
+% % fill3([0, 0, 0], [0, 1, 0], [0, 0, 1], [199, 255, 199]/255)
+% 
+% for idE = 1:refElt.numDOFloc
+% 
+%   % text(refElt.points(idE, 1), refElt.points(idE, 2), refElt.points(idE, 3), int2str(idE), 'color', 'r');
+%   plot3(refElt.points(idE, 1), refElt.points(idE, 2), refElt.points(idE, 3), 'ro', 'markersize', 10, 'markerfacecolor', 'r');
+%   % pause;
+%   
+%   hold on;
+% 
+% end
+% xlabel('x');
+% ylabel('y');
+% %
+% Pts = zeros(0, 3);
+% 
+% % figure;
+% % plot3([0, 1], [0, 0], [0, 0]); hold on;
+% % plot3([0, 0], [0, 1], [0, 0]);
+% % plot3([0, 0], [0, 0], [0, 1]);
+% % plot3([0, 1], [1, 0], [0, 0]);
+% % plot3([0, 1], [0, 0], [1, 0]);
+% % plot3([0, 0], [1, 0], [0, 1]);
+% view(-169, 2);% (75, 20);
+% for i = 1:(p+1)
+%   for j = 1:p+2-i
+%     for k = 1:p+3-i-j
+%       Pts = [Pts; [(i-1.0)/p, (j-1.0)/p, (k-1.0)/p]];
+%       % plot3((i-1.0)/p, (j-1.0)/p, (k-1.0)/p, 'ro', 'markersize', 10, 'markerfacecolor', 'r');
+%       % hold on;
+%       % text((i-1.0)/p, (j-1.0)/p, (k-1.0)/p, ['(', int2str(i), ', ', int2str(j), ', ', int2str(k), ')']);
+%     end
+%   end
+% end
+% 
+% % max(max(abs(sort(Pts) - sort(refElt.points(1:refElt.numDOFloc, :)))))
+% max(max(abs(sort(Pts) - sort(refElt.points))))
 
 
 % for idE = 1:refElt.numDOFloc
@@ -102,20 +102,20 @@ max(max(abs(sort(Pts) - sort(refElt.points))))
 
 % axis off;
 
-% N = 32;
-
-% sbc = @(u, xmax, xmin, ymax, ymin) ...
-%        (((dn(u)|xmin) - 2*(u|xmin) + ...
-%               T_U(u, xmax, eye(N-1), 'weak evaluation') + (((@(P) P(:, 2))*u)|xmin)) == 0) &...
-%        (((dn(u)|xmax) + 3*T_U(u, xmin, eye(N-1), 'weak evaluation') - 8*T_U(u, xmin, eye(N-1), 'weak evaluation')) == 5) & ...
-%        (((dn(u)|ymax) + ((@(P)exp(P(:, 1)))*u|ymin)) == 5) &...
-%        (((dn(u)|ymin) - T_U(u, ymin, eye(N-1), 'weak evaluation') - T_U(u, ymax, eye(N-1), 'weak evaluation')) == -2);
+%%
+N = 32;
+sbc = @(u, xmax, xmin, ymax, ymin) ...
+       (((dn(u)|xmin) - 2*(u|xmin) + ...
+              T_U(u, xmax, eye(N-1), 'weak evaluation') + (((@(P) P(:, 2))*u)|xmin)) == 0) &...
+       (((dn(u)|xmax) + 3*T_U(u, xmin, eye(N-1), 'weak evaluation') - 8*T_U(u, xmin, eye(N-1), 'weak evaluation')) == 5) & ...
+       (((dn(u)|ymax) + ((@(P)exp(P(:, 1)))*u|ymin)) == 5) &...
+       (((dn(u)|ymin) - T_U(u, ymin, eye(N-1), 'weak evaluation') - T_U(u, ymax, eye(N-1), 'weak evaluation')) == -2);
      
-% %
+%
 
-% solbox = FEPack.applications.BVP.CellBVP(2, 'numEdgeNodes', [N, N]); solbox.solve
+solbox = FEPack.applications.BVP.CellBVP(2, 'numEdgeNodes', [N, N]); solbox.solve
 
-
+%%
 % a = findArea(7)
 % a = findArea(7,3)
 % a = findArea(13,'shape','square')

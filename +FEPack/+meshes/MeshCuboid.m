@@ -18,8 +18,8 @@ classdef MeshCuboid < FEPack.meshes.Mesh
     % ============= %
     % Create a mesh %
     % ============= %
-    function mesh = MeshCuboid(is_structured, BBx, BBy, BBz, numNodesX,...
-                               numNodesY, numNodesZ, FEorder, side_names, name, sorttol)
+    function mesh = MeshCuboid(generate_mesh, is_structured, BBx, BBy, BBz, ...
+                               numNodesX, numNodesY, numNodesZ, side_names, name, sorttol)
       % MeshCuboid constructor for mesh of a cuboid
       %
       % INPUTS:  * is_structured (boolean) indicates if the mesh is
@@ -33,7 +33,6 @@ classdef MeshCuboid < FEPack.meshes.Mesh
       %          * numNodesX (integer) is the number of nodes on the x-edges;
       %          * numNodesY (integer) is the number of nodes on the y-edges;
       %          * numNodesZ (integer) is the number of nodes on the y-edges;
-      %          * FEorder (integer) is the order of FE;
       %          * side_names (8x1 string) contains the side names (optional);
       %          * sorttol (double), tolerance used when sorting the points
       %            for domain construction (optional);
@@ -41,10 +40,9 @@ classdef MeshCuboid < FEPack.meshes.Mesh
       % OUTPUTS: * mesh (MeshCuboid), the mesh.
 
       % Default arguments
-      if (nargin < 11), sorttol = 1.0e-10; end
-      if (nargin < 10), randomName(mesh); end
-      if (nargin < 9),  side_names = {'xmax'; 'xmin'; 'ymax'; 'ymin'; 'zmax'; 'zmin'}; end
-      if (nargin < 8),  FEorder = 1; end
+      if (nargin < 10), sorttol = 1.0e-10; end
+      if (nargin < 9), randomName(mesh); end
+      if (nargin < 8),  side_names = {'xmax'; 'xmin'; 'ymax'; 'ymin'; 'zmax'; 'zmin'}; end
       if (nargin < 7),  numNodesZ = 4; end
       if (nargin < 6),  numNodesY = 4; end
       if (nargin < 5),  numNodesX = 4; end
@@ -109,8 +107,6 @@ classdef MeshCuboid < FEPack.meshes.Mesh
         mesh.name = name;
       end
 
-      mesh.attachFEorder(FEorder);
-      
       % Construct maps between edge nodes and subdomains
       % The domains are ordered as : xmax - xmin - ymax - ymin - zmax - zmin
       Icoo = [2, 3; 2, 3; 3, 1; 3, 1; 1, 2; 1, 2];

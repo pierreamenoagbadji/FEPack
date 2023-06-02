@@ -100,16 +100,16 @@ classdef FEDomain < FEPack.FEPackObject
 
     end
 
-    function attachSpectralBasis(FEdom, spectralB)
+    % function attachSpectralBasis(FEdom, spectralB)
 
-      % Preliminary verifications
-      if ((spectralB.domain == FEdom) ~= 1)
-        error('La base n''est pas définie sur le domaine auquel on souhaite l''attacher.');
-      end
+    %   % Preliminary verifications
+    %   if ((spectralB.domain == FEdom) ~= 1)
+    %     error('La base n''est pas définie sur le domaine auquel on souhaite l''attacher.');
+    %   end
 
-      FEdom.spectralBasis = spectralB;
+    %   FEdom.spectralBasis = spectralB;
 
-    end
+    % end
 
     function val = eq(domA, domB)
       % Checks if domA and domB are equal or 

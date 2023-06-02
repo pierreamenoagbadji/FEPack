@@ -75,12 +75,7 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
         % Symbolic boundary conditions
         symBC = FEPack.applications.symBC.SymBoundaryCondition;
         symBC.domain = {domain};
-        % [~, domId] = find(domain.mesh.mapdomains == domain.reference);
-        % u.alpha = [0 0];
-        % u.alpha(domId) = 1;
         
-
-
         if (u.is_normal_derivative)
           symBC.gamma0 = {0}; % {[0 0]};
           symBC.gamma1 = {u.alpha}; % {u.alpha};
@@ -90,7 +85,6 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
         end
 
         symBC.fun = {u.fun};
-        % symBC.fun{1, domId} = u.fun;
 
       else
 
@@ -104,35 +98,36 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
       symBC = onDomain(u, domain);
     end
 
-    % Boundary condition involving operator represented by matrix
-    function symBC = T_U(u, domain, Tmat, representation)
-      % INPUTS: * u, FEPack.applications.symBC.SymPDEObject.
-      %         * domain, FEPack.meshes.FEDomain object, the domain on which
-      %           the condition is defined.
-      %         * Tmat, a matrix that represents the operator applied to the
-      %           unknown.
-      %         * representation, a string between 'weak evaluation' and
-      %           'projection', which specifies the definition of T.
-      %
-      % OUTPUTS: * symBC, FEPack.applications.symBC.SymBoundaryCondition.
-      normal_derivative_not_allowed(u);
-      symBC = FEPack.applications.symBC.SymBoundaryCondition;
-      symBC.domain = {domain};
-      symBC.gamma0 = {u.alpha};
-      symBC.gamma1 = {0};
+    % % Boundary condition involving operator represented by matrix
+    % function symBC = T_U(u, domain, Tmat, spectralB, representation)
+    %   % INPUTS: * u, FEPack.applications.symBC.SymPDEObject.
+    %   %         * domain, FEPack.meshes.FEDomain object, the domain on which
+    %   %           the condition is defined.
+    %   %         * Tmat, a matrix that represents the operator applied to the
+    %   %           unknown.
+    %   %         * spectralB, SpectralBasis object.
+    %   %         * representation, a string between 'weak evaluation' and
+    %   %           'projection', which specifies the definition of T.
+    %   %
+    %   % OUTPUTS: * symBC, FEPack.applications.symBC.SymBoundaryCondition.
+    %   normal_derivative_not_allowed(u);
+    %   symBC = FEPack.applications.symBC.SymBoundaryCondition;
+    %   symBC.domain = {domain};
+    %   symBC.gamma0 = {u.alpha};
+    %   symBC.gamma1 = {0};
       
-      if (~isempty(u.fun))
+    %   if (~isempty(u.fun))
 
-        error('l''inconnue semble être déjà multipliée par quelque chose');
+    %     error('l''inconnue semble être déjà multipliée par quelque chose');
 
-      else
+    %   else
         
-        % Set the operator
-        symBC.fun = {{Tmat, representation}};
+    %     % Set the operator
+    %     symBC.fun = {{Tmat, spectralB, representation}};
 
-      end
+    %   end
 
-    end
+    % end
 
   end % methods
 

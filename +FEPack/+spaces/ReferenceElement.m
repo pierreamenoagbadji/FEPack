@@ -2,7 +2,12 @@
 %> @brief Contains the spaces.ReferenceElement class.
 %> @brief Lagrange elements
 % =========================================================================== %
-%> @brief Abstract class for all domains
+%> @brief Abstract class for reference elements
+%> The finite element considered are the Lagrage Pk finite element.
+%> Therefore,
+%> 1. The 1D reference element is a segment
+%> 2. The 2D reference element is a triangle
+%> 3. The 3D reference element is a tetrahedron.
 %>
 % =========================================================================== %
 classdef ReferenceElement < FEPack.FEPackObject
@@ -21,6 +26,8 @@ classdef ReferenceElement < FEPack.FEPackObject
 
     %> Points associated to element
     points = [];
+
+    %> Shape coefficients
 
   end
 
@@ -64,16 +71,17 @@ classdef ReferenceElement < FEPack.FEPackObject
 
         refElt.numDOFloc = (FEorder + 1) * (FEorder + 2) * (FEorder + 3) / 6;
         locDOFIds = FEPack.spaces.ReferenceElement.TetrahedronLocalNumbering(FEorder);
-        
         refElt.points = (locDOFIds - 1.0) / FEorder;
 
       end
 
     end
 
+    % function phis = shapeFunctions()
   end
 
   methods (Static)
+
     function nums = TriangleLocalNumbering(FEorder)
       % nums = TRIANGLELOCALNUMBERING(FEorder)
       % Provides a numbering for the reference triangle
@@ -109,7 +117,7 @@ classdef ReferenceElement < FEPack.FEPackObject
       % OUTPUTS: * nums, a numDOFloc-by-2 matrix such that
       %             nums(p) = (i(p), j(p)), that is, the
       %             geometrical position of the p-th DOF.
-      
+
       nums = zeros(0, 2);
       p = FEorder;
       idPmin = 1;
@@ -118,9 +126,9 @@ classdef ReferenceElement < FEPack.FEPackObject
         idPmax = idPmin + p;
 
         % Triangle vertices that belong to two distinct edges
-        nums = [nums; [idPmin, idPmin]];
-        nums = [nums; [idPmax, idPmin]];
-        nums = [nums; [idPmin, idPmax]];
+        nums = [nums; [idPmin, idPmin]]; %#ok
+        nums = [nums; [idPmax, idPmin]]; %#ok
+        nums = [nums; [idPmin, idPmax]]; %#ok
 
         % Interior edge nodes (they belong to one edge only)
         edgeId = (idPmin+1:idPmax-1);
@@ -130,7 +138,7 @@ classdef ReferenceElement < FEPack.FEPackObject
         matI = [edgeId; edgeRv; onesId];
         matJ = [onesId; edgeId; edgeRv];
 
-        nums = [nums; [matI(:), matJ(:)]];
+        nums = [nums; [matI(:), matJ(:)]]; %#ok
         
         % Update
         p = p - 3;
@@ -174,10 +182,10 @@ classdef ReferenceElement < FEPack.FEPackObject
         idPmax = idPmin + p;
 
         % Tetrahedron vertices: each one belongs to 3 faces (and 3 edges)
-        nums = [nums; [idPmin, idPmin, idPmin]];
-        nums = [nums; [idPmax, idPmin, idPmin]];
-        nums = [nums; [idPmin, idPmax, idPmin]];
-        nums = [nums; [idPmin, idPmin, idPmax]];
+        nums = [nums; [idPmin, idPmin, idPmin]]; %#ok
+        nums = [nums; [idPmax, idPmin, idPmin]]; %#ok
+        nums = [nums; [idPmin, idPmax, idPmin]]; %#ok
+        nums = [nums; [idPmin, idPmin, idPmax]]; %#ok
 
         % Interior edge nodes: each one belongs to 2 faces
         edgeId = (idPmin+1):(idPmax-1);
@@ -188,7 +196,7 @@ classdef ReferenceElement < FEPack.FEPackObject
         matJ = [onesId; edgeId; edgeRv; onesId; onesId; edgeRv];
         matK = [onesId; onesId; onesId; edgeId; edgeId; edgeId];
         
-        nums = [nums; [matI(:), matJ(:), matK(:)]];
+        nums = [nums; [matI(:), matJ(:), matK(:)]]; %#ok
         
         % Interior face nodes: each one belongs to 1 face
         faceId = idPmin + FEPack.spaces.ReferenceElement.TriangleLocalNumbering(p - 3)';
@@ -199,7 +207,7 @@ classdef ReferenceElement < FEPack.FEPackObject
         matJ = [faceId(2, :); onesId;       faceId(1, :);  faceId(1, :)];
         matK = [onesId;       faceId(2, :); faceId(2, :);  faceId(2, :)];
 
-        nums = [nums; [matI(:), matJ(:), matK(:)]];
+        nums = [nums; [matI(:), matJ(:), matK(:)]]; %#ok
 
         % Update
         p = p - 4;
@@ -212,7 +220,6 @@ classdef ReferenceElement < FEPack.FEPackObject
       end
 
     end
-
 
   end
 end

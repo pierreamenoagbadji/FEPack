@@ -112,8 +112,8 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
       % FE-to-spectral matrix
       sp.FE_to_spectral = sp.projmat;
 
-      % Attach spectral basis to domain
-        domain.attachSpectralBasis(sp);
+      % % Attach spectral basis to domain
+      % domain.attachSpectralBasis(sp);
 
     end
 

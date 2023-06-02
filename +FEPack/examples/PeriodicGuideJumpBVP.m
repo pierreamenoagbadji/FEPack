@@ -1,7 +1,7 @@
-function U = PeriodicGuideJumpBVP(infiniteDirection,...
-                                  volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCells_pos,...
-                                  volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
-                                  jumpLinearIntg, opts)
+function [U, Uint, dUint] = PeriodicGuideJumpBVP(semiInfiniteDirection,...
+                                                volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCells_pos,...
+                                                volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
+                                                jumpData, opts)
 
   % PeriodicSpaceBVP
   % warning('Uniquement Dirichlet (saut Neumann)');
@@ -11,11 +11,11 @@ function U = PeriodicGuideJumpBVP(infiniteDirection,...
 
   % Solve the problem in the positive half-guide
   % ////////////////////////////////////////////
-  [Upos, BCstruct_pos, Lambda_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, infiniteDirection, volBilinearIntg_pos, BCstruct_pos, numCells_pos, opts);
+  [Upos, BCstruct_pos, Lambda_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, semiInfiniteDirection, volBilinearIntg_pos, BCstruct_pos, numCells_pos, opts);
 
   % Solve the problem in the negative half-guide
   % ////////////////////////////////////////////
-  [Uneg, BCstruct_neg, Lambda_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, infiniteDirection, volBilinearIntg_neg, BCstruct_neg, numCells_neg, opts);
+  [Uneg, BCstruct_neg, Lambda_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, semiInfiniteDirection, volBilinearIntg_neg, BCstruct_neg, numCells_neg, opts);
 
   % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % N = 32;
@@ -35,12 +35,14 @@ function U = PeriodicGuideJumpBVP(infiniteDirection,...
 
   % Solve the problem at the interface
   % //////////////////////////////////
-  Sigma0pos = mesh_pos.domains{2*infiniteDirection};
-  Sigma0neg = mesh_neg.domains{2*infiniteDirection};
-  GG = FEPack.pdes.Form.intg(Sigma0pos, jumpLinearIntg);
-  GG = BCstruct_pos.spB0.FE_to_spectral * GG(Sigma0pos.IdPoints, :);
+  Sigma0pos = mesh_pos.domains{2*semiInfiniteDirection};
+  % Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
+  
 
-  solphi = (Lambda_neg + Lambda_pos) \ GG;
+  % GG = FEPack.pdes.Form.intg(Sigma0pos, jumpData);
+  GG = BCstruct_pos.spB0.FE_to_spectral * jumpData(mesh_pos.points(Sigma0pos.IdPoints, :));
+
+  solphi = (Lambda_pos + Lambda_neg) \ GG;
   % cond(Lambda_neg + Lambda_pos)
   
   % Construct the solution in the whole domain
@@ -57,5 +59,18 @@ function U = PeriodicGuideJumpBVP(infiniteDirection,...
 
   for idCell = 1:numCells_neg
     U.negative(:, idCell) = Uneg{idCell} * solphi;
+  end
+
+  % Trace and normal trace of U
+  if (BCstruct_pos.spB0.is_interpolated)
+    Uint = BCstruct_pos.spB0.phis * solphi;
+    dUint.positive = BCstruct_pos.spB0.phis * Lambda_pos * solphi;
+    dUint.negative = BCstruct_neg.spB0.phis * Lambda_neg * solphi;
+  else
+    Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
+
+    Uint = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * solphi;
+    dUint.positive = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * Lambda_pos * solphi;
+    dUint.negative = BCstruct_neg.spB0.phis(mesh_pos.points(Sigma0neg.IdPoints, :), 1:BCstruct_neg.spB0.numBasis) * Lambda_neg * solphi;
   end
 end

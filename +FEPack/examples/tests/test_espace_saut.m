@@ -68,9 +68,9 @@ BCstruct_neg.representation = '';
 numCells_neg = 4;
 volBilinearIntg_neg = volBilinearIntg(mu_neg, rho_neg);
 
-%% Parameters for the interior problem
+%% Parameters for the interface problem
 %  //////////////////////////////////////
-jumpLinearIntg = G * id(v);
+% jumpLinearIntg = G * id(v);
 
 numCellsSemiInfinite_pos = 4;
 numCellsSemiInfinite_neg = 4;
@@ -122,7 +122,7 @@ end
 U = PeriodicSpaceJumpBVP(coSemiInf, coInf,...
                          volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                          volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                         jumpLinearIntg, numCellsInfinite, numFloquetPoints, opts);
+                         G, numCellsInfinite, numFloquetPoints, opts);
 
 %% Plot U
 figure;

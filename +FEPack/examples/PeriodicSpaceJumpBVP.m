@@ -1,7 +1,7 @@
-function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
+function [U, Uint, dUint] = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections, period,...
                                   volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                                   volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                                  jumpLinearIntg, numCellsInfinite, numFloquetPoints, opts)
+                                  jumpData, numCellsInfinite, numFloquetPoints, opts)
   % PeriodicSpaceBVP
 
   %% % ************************* %
@@ -12,6 +12,7 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
 
   infiniteDirections = unique(infiniteDirections(:).');
   opts.verbose = 0;
+
 
   if min((1:mesh_pos.dimension) ~= semiInfiniteDirection)
     % The component along which the domain is semi-infinite should be between
@@ -120,7 +121,7 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
 
   % Discretization grid for the Floquet variable
   for idI = 1:Ni
-    FBpoints{idI} = linspace(-pi, pi, numFloquetPoints(idI));
+    FBpoints{idI} = linspace(-pi/period, pi/period, numFloquetPoints(idI));
   end
 
   % Linearized to subindices for Floquet variable
@@ -130,13 +131,15 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   FloquetIds = [I1; I2; I3];
   FloquetIds = FloquetIds(infiniteDirections, :); % Ni-by-numFBpoints
   TFBU = cell(numFBpoints, 1);
+  TFBUint = cell(numFBpoints, 1);
+  TFBdUint = cell(numFBpoints, 1);
 
   K = zeros(numFBpoints, Ni);
   for idI = 1:Ni
     K(:, idI) = FBpoints{idI}(FloquetIds(idI, :)).';
   end
 
-  jumpLinearIntg_FB = copy(jumpLinearIntg);
+  % jumpLinearIntg_FB = copy(jumpLinearIntg);
   % jumpLinearIntg_FB = cell(numFBpoints, 1);
   % parfor idFB = 1:numFBpoints
   %   jumpLinearIntg_FB{idFB} = copy(jumpLinearIntg);
@@ -169,13 +172,14 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
     end
 
     % The Floquet-Bloch transform of the boundary data along the relevant directions
-    jumpLinearIntg_FB.fun = {@(x) BlochTransform(x, K(idFB, :), jumpLinearIntg.fun{1}, infiniteDirections)};
+    % jumpLinearIntg_FB.fun = {@(x) BlochTransform(x, K(idFB, :), jumpLinearIntg.fun{1}, infiniteDirections)};
+    jumpData_FB = @(x) BlochTransform(x, K(idFB, :), jumpData, infiniteDirections);
 
     % Compute the solution
-    TFBU{idFB} = PeriodicGuideJumpBVP(semiInfiniteDirection,...
+    [TFBU{idFB}, TFBUint{idFB}, TFBdUint{idFB}] = PeriodicGuideJumpBVP(semiInfiniteDirection,...
                                   AApos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                                   AAneg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                                  jumpLinearIntg_FB, opts);
+                                  jumpData_FB, opts);
   end
 
   delete(pgbar);
@@ -184,7 +188,7 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   %  % Apply the inverse Floquet-Bloch transform %
   %  % ***************************************** %
   % Positive side
-  % /////////////
+  % /////////////////////////////////////////////
   numCells = [1 1 1];
   numCells(infiniteDirections) = 2*numCellsInfinite;
   numCells(semiInfiniteDirection) = numCellsSemiInfinite_pos;
@@ -193,23 +197,54 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   [I1, I2, I3] = ind2sub(numCells, 1:Nu);
   pointsIds = [I1; I2; I3]; % 3-by-Nu
   tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nu) - 1; % Ni-by-Nu
-  W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
+  W = prod((2*pi/period) ./ (numFloquetPoints - 1)); % 1-by-1
   U.positive = zeros(Npos, Nu);
 
   for idFB = 1:numFBpoints
     % The integral that defines the inverse Floquet-Bloch transform is computed
     % using a rectangular rule.
     exp_k_dot_x = exp(1i * mesh_pos.points(:, infiniteDirections) * K(idFB, :).'); % N-by-1
-    exp_k_dot_tau = exp(1i * K(idFB, :) * tau); % 1-by-Nu
+    exp_k_dot_tau = exp(1i * K(idFB, :) * tau * period); % 1-by-Nu
     U_TFB = TFBU{idFB}.positive(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nu
 
     U.positive = U.positive + W * (exp_k_dot_x * exp_k_dot_tau) .* U_TFB;
   end
 
-  U.positive = U.positive / sqrt(2*pi);
+  U.positive = U.positive * sqrt(period / (2*pi));
+
+  % % Trace and normal trace
+  % % ======================
+  % numCellsInt = [1 1 1];
+  % numCellsInt(infiniteDirections) = 2*numCellsInfinite;
+  % Nci = prod(2*numCellsInfinite);
+
+  % [I1, I2, I3] = ind2sub(numCellsInt, 1:Nci);
+  % pointsIds = [I1; I2; I3]; % 3-by-Nci
+  % tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nci) - 1; % Ni-by-Nci
+  % W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
+  % Sigma0pos = mesh_pos.domains{2*semiInfiniteDirection};
+
+  % Uint = zeros(Sigma0pos.numPoints, Nci);
+  % dUint.positive = zeros(Sigma0pos.numPoints, Nci);
+
+  % for idFB = 1:numFBpoints
+  %   % The integral that defines the inverse Floquet-Bloch transform is computed
+  %   % using a rectangular rule.
+  %   exp_k_dot_x = exp(1i * mesh_pos.points(Sigma0pos.IdPoints, infiniteDirections) * K(idFB, :).'); % N-by-1
+  %   exp_k_dot_tau = exp(1i * K(idFB, :) * tau); % 1-by-Nci
+    
+  %   Uint_TFB = TFBUint{idFB}(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nci
+  %   dUint_TFB = TFBdUint{idFB}.positive(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nci
+
+  %   Uint = Uint + W * (exp_k_dot_x * exp_k_dot_tau) .* Uint_TFB;
+  %   dUint.positive = dUint.positive + W * (exp_k_dot_x * exp_k_dot_tau) .* dUint_TFB;
+  % end
+
+  % Uint = Uint / sqrt(2*pi);
+  % dUint.positive = dUint.positive / sqrt(2*pi);
 
   % Negative side
-  % /////////////
+  % /////////////////////////////////////////////
   numCells = [1 1 1];
   numCells(infiniteDirections) = 2*numCellsInfinite;
   numCells(semiInfiniteDirection) = numCellsSemiInfinite_neg;
@@ -218,18 +253,45 @@ function U = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirections,...
   [I1, I2, I3] = ind2sub(numCells, 1:Nu);
   pointsIds = [I1; I2; I3]; % 3-by-Nu
   tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nu) - 1; % Ni-by-Nu
-  W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
+  W = prod((2*pi/period) ./ (numFloquetPoints - 1)); % 1-by-1
   U.negative = zeros(Nneg, Nu);
 
   for idFB = 1:numFBpoints
     % The integral that defines the inverse Floquet-Bloch transform is computed
     % using a rectangular rule.
     exp_k_dot_x = exp(1i * mesh_neg.points(:, infiniteDirections) * K(idFB, :).'); % N-by-1
-    exp_k_dot_tau = exp(1i * K(idFB, :) * tau); % 1-by-Nu
+    exp_k_dot_tau = exp(1i * K(idFB, :) * tau * period); % 1-by-Nu
     U_TFB = TFBU{idFB}.negative(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nu
 
     U.negative = U.negative + W * (exp_k_dot_x * exp_k_dot_tau) .* U_TFB;
   end
 
-  U.negative = U.negative / sqrt(2*pi);
+  U.negative = U.negative * sqrt(period/(2*pi));
+
+  % % Trace and normal trace
+  % % ======================
+  % numCellsInt = [1 1 1];
+  % numCellsInt(infiniteDirections) = 2*numCellsInfinite;
+  % Nci = prod(2*numCellsInfinite);
+  % Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
+
+  % [I1, I2, I3] = ind2sub(numCellsInt, 1:Nci);
+  % pointsIds = [I1; I2; I3]; % 3-by-Nci
+  % tau = pointsIds(infiniteDirections, :) - numCellsInfinite' * ones(1, Nci) - 1; % Ni-by-Nci
+  % W = prod(2*pi ./ (numFloquetPoints - 1)); % 1-by-1
+
+  % dUint.negative = zeros(Sigma0neg.numPoints, Nci);
+
+  % for idFB = 1:numFBpoints
+  %   % The integral that defines the inverse Floquet-Bloch transform is computed
+  %   % using a rectangular rule.
+  %   exp_k_dot_x = exp(1i * mesh_pos.points(Sigma0neg.IdPoints, infiniteDirections) * K(idFB, :).'); % N-by-1
+  %   exp_k_dot_tau = exp(1i * K(idFB, :) * tau); % 1-by-Nci
+  %   dUint_TFB = TFBdUint{idFB}.negative(:, pointsIds(semiInfiniteDirection, :)); % N-by-Nci
+
+  %   dUint.negative = dUint.negative + W * (exp_k_dot_x * exp_k_dot_tau) .* dUint_TFB;
+  % end
+
+  % dUint.negative = dUint.negative / sqrt(2*pi);
+
 end

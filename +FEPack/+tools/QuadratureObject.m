@@ -136,6 +136,26 @@ classdef QuadratureObject < FEPack.FEPackObject
 
     end
 
+    function quadRule = Gauss_Lobatto_order_3
+      % 4-point Gauss-Lobatto rule of order 3
+      quadRule = FEPack.tools.QuadratureObject;
+      quadRule.points = [...
+        %
+        1/3, 1/3;...
+        1/5, 1/5;...
+        1/5, 3/5;...
+        3/5, 1/5;...
+      ].';
+
+      quadRule.weights = [...
+        %
+        -9/32;...
+        25/96;...
+        25/96;...
+        25/96;...
+      ].';
+    end
+
     function quadRule = symetrical_Gauss_triangle(ord)
 
       % Quadrature rule for the reference triangle
@@ -1102,6 +1122,8 @@ classdef QuadratureObject < FEPack.FEPackObject
           quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_segment(6, 0, 1);
         case 2
           quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_triangle(6);
+          % quadRule = FEPack.tools.QuadratureObject.Gauss_Lobatto_order_3;
+          % quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_triangle(8);
         case 3
           quadRule = FEPack.tools.QuadratureObject.symetrical_Gauss_tetrahedron(6);
         otherwise

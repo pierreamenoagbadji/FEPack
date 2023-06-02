@@ -1,5 +1,5 @@
- function [U, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, infiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
-  % PeriodicHalfGuideBVP(mesh, orientation, infiniteDirection, volBilinearIntg, BCstruct, numCells, opts) solves
+ function [U, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, semiInfiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
+  % PeriodicHalfGuideBVP(mesh, orientation, semiInfiniteDirection, volBilinearIntg, BCstruct, numCells, opts) solves
   %
   %       Find u in V such that tau(u) = g, and
   %                A(u, v) + S(u, v) = Sf(v) for any v in V such that tau(v) = 0,
@@ -11,8 +11,8 @@
   %         * orientation, a number in {-1, 1} that represent whether the guide
   %           is infinite along a positive or a negative axis.
   %
-  %         * infiniteDirection, direction along which the guide is infinite.
-  %           infiniteDirection is between 1 and the mesh dimension.
+  %         * semiInfiniteDirection, direction along which the guide is infinite.
+  %           semiInfiniteDirection is between 1 and the mesh dimension.
   %
   %         * bilinearIntg, integrand associated to the volumic bilinear form.
   %            For instance, bilinearIntg = grad(u)*grad(v) - (omega^2)*id(u)*id(v).
@@ -73,10 +73,10 @@
     error('%d a ete donne comme orientation du demi-guide au lieu de -1 ou de 1.', orientation);
   end
 
-  if min((1:mesh.dimension) ~= infiniteDirection)
+  if min((1:mesh.dimension) ~= semiInfiniteDirection)
     % The component along which the guide is infinite should be between
     % 1 and the mesh dimension
-    error('Le demi-guide ne peut pas être infini dans la direction %d.', infiniteDirection);
+    error('Le demi-guide ne peut pas être infini dans la direction %d.', semiInfiniteDirection);
   end
 
   if ~isfield(opts, 'solBasis')
@@ -99,7 +99,7 @@
   end
 
   % Find bounded directions and impose periodic condition on them
-  boundedDirections = find((1:mesh.dimension) ~= infiniteDirection); % Bounded directions
+  boundedDirections = find((1:mesh.dimension) ~= semiInfiniteDirection); % Bounded directions
 
   u = FEPack.pdes.PDEObject;
   v = dual(u);
@@ -109,8 +109,8 @@
   end
 
   % Domains
-  Sigma0 = mesh.domains{2*infiniteDirection};
-  Sigma1 = mesh.domains{2*infiniteDirection-1};
+  Sigma0 = mesh.domains{2*semiInfiniteDirection};
+  Sigma1 = mesh.domains{2*semiInfiniteDirection-1};
 
   % Boundary basis functions
   spB0 = BCstruct.spB0;
@@ -213,8 +213,8 @@
     AA = AA + SS0 + SS1;
 
     % Surfacic right-hand sides
-    BB = [FEPack.pdes.Form.intg(Sigma0, id(u)*id(v)) * B0,...
-          FEPack.pdes.Form.intg(Sigma1, id(u)*id(v)) * B1];
+    BB = [FEPack.pdes.Form.intg(Sigma0, u*v) * B0,...
+          FEPack.pdes.Form.intg(Sigma1, u*v) * B1];
 
     % Solve the local cell problems
     Ecell = CellBVP(mesh, AA, BB, ecs);

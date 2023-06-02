@@ -19,7 +19,7 @@ classdef MeshRectangle < FEPack.meshes.Mesh
     % Create a mesh %
     % ============= %
     function mesh = MeshRectangle(is_structured, BBx, BBy, numNodesX,...
-                                  numNodesY, FEorder, side_names, name)
+                                  numNodesY, side_names, name)
       % MeshRectangle constructor for rectangle mesh
       %
       % INPUTS:  * is_structured (boolean) indicates if the mesh is
@@ -30,15 +30,13 @@ classdef MeshRectangle < FEPack.meshes.Mesh
       %            of the bounding box;
       %          * numNodesX (integer) is the number of nodes on the x-edges;
       %          * numNodesY (integer) is the number of nodes on the y-edges;
-      %          * FEorder (integer) is the order of FE;
       %          * side_names (4x1 string) contains the side names (optional)
       %
       % OUTPUTS: * mesh (MeshRectangle), the mesh.
 
       % Default arguments
-      if (nargin < 8), randomName(mesh); end
-      if (nargin < 7), side_names = {'ymin'; 'xmax'; 'ymax'; 'xmin'}; end
-      if (nargin < 6), FEorder = 1; end
+      if (nargin < 7), randomName(mesh); end
+      if (nargin < 6), side_names = {'ymin'; 'xmax'; 'ymax'; 'xmin'}; end
       if (nargin < 5), numNodesY = 8; end
       if (nargin < 4), numNodesX = 8; end
       if (nargin < 3), BBy = [0.0, 1.0]; end
@@ -93,8 +91,6 @@ classdef MeshRectangle < FEPack.meshes.Mesh
       if (nargin >= 8)
         mesh.name = name;
       end
-
-      mesh.attachFEorder(FEorder);
 
       % Construct maps between edge nodes and subdomains
       % The domains are ordered as : xmax - xmin - ymax - ymin

@@ -1,19 +1,22 @@
 clear; clc;
 %%
 import FEPack.*
-% profile ON
-opts.omega = 8 + 0.1i;% 5 + 0.25i;
+profile ON
+opts.omega = 5 + 0.25i;% 5 + 0.25i;
 vecper = [-1, 1];% [-sqrt(2), 1];
-cutvec = [-vecper(1)/vecper(2); 1.0/vecper(2)];
+cutvec = [-1; 1.0/vecper(2)];
 opts.cutmat = [[1; 0; 0], [0; cutvec]];
 cutslope = cutvec(2) / cutvec(1);
 
 funumNodes3D = @(fun2Dcart, x) fun2Dcart([x(:, 1) + x(:, 2), x(:, 3), zeros(size(x, 1), 1)]);
 
-mu2DposCart = @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
-rho2DposCart = @(x) 1 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
+mu2DposCart = @(x) ones(size(x, 1), 1); % @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
+% rho2DposCart = @(x) 2*ones(size(x, 1), 1); % @(x) 2 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
+rho2DposCart = @(x) 2 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
+
 mu2Dpos = @(x) mu2DposCart([x(:, 1) + cutvec(1)*x(:, 2), cutvec(2)*x(:, 2), zeros(size(x, 1), 1)]);
 rho2Dpos = @(x) rho2DposCart([x(:, 1) + cutvec(1)*x(:, 2), cutvec(2)*x(:, 2), zeros(size(x, 1), 1)]);
+
 mu3Dpos = @(x) funumNodes3D(mu2DposCart, x);
 rho3Dpos = @(x) funumNodes3D(rho2DposCart, x);
 
@@ -37,8 +40,8 @@ volBilinearIntg = @(muco, rhoco) (muco * (opts.cutmat' * grad3(u))) * (opts.cutm
 plot_coefficients = false;
 compareU = true;
 
-numNodes2D = 64;
-numNodes3D = 16;
+numNodes2D = 16;
+numNodes3D = 8;
 
 %% Parameters for the positive half-guide
 %  //////////////////////////////////////
@@ -81,11 +84,13 @@ volBilinearIntg_neg = volBilinearIntg(mu3Dneg, rho3Dneg);
 
 %% Parameters for the interface problem
 %  //////////////////////////////////////
-jumpLinearIntg = G3D * id(v);
+% jumpLinearIntg = G3D * id(v);
+semiInfiniteDirection = 1;
+infiniteDirection = 2;
 
-numCellsSemiInfinite_pos = 5;
-numCellsSemiInfinite_neg = 5;
-numCellsInfinite = 4;
+numCellsSemiInfinite_pos = 7;
+numCellsSemiInfinite_neg = 7;
+numCellsInfinite = 6;
 numFloquetPoints = 50;
 
 %% Plot the coefficients and the source term
@@ -123,10 +128,12 @@ end
 
 %%
 % Compute guide solution
-U3D = PeriodicSpaceJumpBVP(1, 2,...
+tic;
+U3D = PeriodicSpaceJumpBVP(semiInfiniteDirection, infiniteDirection, 1,...
                            volBilinearIntg_pos, mesh3Dpos, BCstruct_pos, numCellsSemiInfinite_pos,...
                            volBilinearIntg_neg, mesh3Dneg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                           jumpLinearIntg, numCellsInfinite, numFloquetPoints, opts);
+                           G3D, numCellsInfinite, numFloquetPoints, opts);
+toc;
 
 %%
 % Take the trace
@@ -171,110 +178,211 @@ for idI = 1:2*numCellsInfinite
 end
 
 
-%% Plot U
-figure;%(1);
-set(groot,'defaultAxesTickLabelInterpreter','latex');
-set(groot,'defaulttextinterpreter','latex');
-set(groot,'defaultLegendInterpreter','latex');
-if (compareU)
-  subplot(1, 2, 1);
-end
-for idS = 1:numCellsSemiInfinite_pos
-  for idI = 1:2*numCellsInfinite
-    Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
-    X = mesh2Dpos.points(:, 1) + (idS - 1);
-    Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
+% %% Plot U
+% figure;%(1);
+% set(groot,'defaultAxesTickLabelInterpreter','latex');
+% set(groot,'defaulttextinterpreter','latex');
+% set(groot,'defaultLegendInterpreter','latex');
+% % if (compareU)
+% %   subplot(1, 2, 1);
+% % end
+% for idS = 1:numCellsSemiInfinite_pos
+%   for idI = 1:2*numCellsInfinite
+%     Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
+%     X = mesh2Dpos.points(:, 1) + (idS - 1);
+%     Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
 
-    trisurf(mesh2Dpos.triangles, X, Y, real(U2D.positive(:, Icell)));
-    hold on;
-    view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-    set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-    % colormap jet
-  end
-end
-%%
-for idS = 1:numCellsSemiInfinite_neg
-  for idI = 1:2*numCellsInfinite
-    Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
-    X = mesh2Dneg.points(:, 1) - (idS - 1);
-    Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
-    trisurf(mesh2Dneg.triangles, X, Y, real(U2D.negative(:, Icell)));
-    hold on;
-    view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-    set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-    % colormap jet
-  end
-end
+%     trisurf(mesh2Dpos.triangles, X, Y, real(U2D.positive(:, Icell)));
+%     hold on;
+%     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%     % colormap jet
+%     % caxis([-0.02, 0.02]);
+%   end
+% end
+% %%
+% for idS = 1:numCellsSemiInfinite_neg
+%   for idI = 1:2*numCellsInfinite
+%     Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
+%     X = mesh2Dneg.points(:, 1) - (idS - 1);
+%     Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
+%     trisurf(mesh2Dneg.triangles, X, Y, real(U2D.negative(:, Icell)));
+%     hold on;
+%     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%     % colormap jet
+%   end
+% end
 
-xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
-ylim([-numCellsInfinite, numCellsInfinite]);
+% xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
+% ylim([-numCellsInfinite, numCellsInfinite]);
+% caxis([-0.02, 0.02]);
 
 % figure('Position', get(0, 'Screensize'), 'visible', 'off');
 % set(gca,'DataAspectRatio',[1 1 1]);
 % axis off;
+%%
+% figure;
+% Sigma0pos = mesh3Dpos.domains{2*semiInfiniteDirection};
+% id0 = zeros(mesh3Dpos.numPoints, 1);
+% id0(Sigma0pos.IdPoints) = (1:Sigma0pos.numPoints)';
+% tri = zeros(Sigma0pos.numElts, 3);
+% for idI = 1:Sigma0pos.numPoints
+%   tri(mesh3Dpos.triangles(Sigma0pos.idelements, :) == Sigma0pos.IdPoints(idI)) = id0(Sigma0pos.IdPoints(idI));
+% end
+% % Xpos = mesh3D
+% 
+% for idI = 1:2*numCellsInfinite
+%   % Icellpos = sub2ind([1, 2*numCellsInfinite], 1, idI)
+%   Ypos = mesh3Dpos.points(Sigma0pos.IdPoints, 2) + (idI - numCellsInfinite - 1);
+%   Zpos = mesh3Dpos.points(Sigma0pos.IdPoints, 3);
+% 
+%   trisurf(tri, Ypos, Zpos, real(dUint.positive(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   % colormap jet
+%   % caxis([-0.02, 0.02]);
+% end
+% 
+% figure;
+% Sigma0neg = mesh3Dneg.domains{2*semiInfiniteDirection};
+% id0 = zeros(mesh3Dneg.numPoints, 1);
+% id0(Sigma0neg.IdPoints) = (1:Sigma0neg.numPoints)';
+% tri = zeros(Sigma0neg.numElts, 3);
+% for idI = 1:Sigma0neg.numPoints
+%   tri(mesh3Dneg.triangles(Sigma0neg.idelements, :) == Sigma0neg.IdPoints(idI)) = id0(Sigma0neg.IdPoints(idI));
+% end
+% % Xneg = mesh3D
+% 
+% for idI = 1:2*numCellsInfinite
+%   % Icellneg = sub2ind([1, 2*numCellsInfinite], 1, idI)
+%   Yneg = mesh3Dneg.points(Sigma0neg.IdPoints, 2) + (idI - numCellsInfinite - 1);
+%   Zneg = mesh3Dneg.points(Sigma0neg.IdPoints, 3);
+% 
+%   trisurf(tri, Yneg, Zneg, real(dUint.negative(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   % colormap jet
+%   % caxis([-0.02, 0.02]);
+% end
+% %%
 
+% xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_neg - 1]);
+% ylim([-numCellsInfinite, numCellsInfinite]);
+% caxis([-0.025, 0.025]);
 
-%% Compare U in the rational case
-if (compareU)
-  %
-  volBilinearIntg2D = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+profile viewer
 
-  BCstruct2Dpos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmin'));
-  BCstruct2Dpos.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmax'));
-  BCstruct2Dpos.BCdu = BCstruct_pos.BCdu;
-  BCstruct2Dpos.BCu = BCstruct_pos.BCu;
-  volBilinearIntg2Dpos = volBilinearIntg2D(mu2Dpos, rho2Dpos);
-
-  %
-  BCstruct2Dneg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmin'));
-  BCstruct2Dneg.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmax'));
-  BCstruct2Dneg.BCdu = BCstruct_neg.BCdu;
-  BCstruct2Dneg.BCu = BCstruct_neg.BCu;
-  volBilinearIntg2Dneg = volBilinearIntg2D(mu2Dneg, rho2Dneg);
-
-  %
-  jumpLinearIntg2D = G * id(v);
-  
-  %
-  Ur = PeriodicSpaceJumpBVP(1, 2,...
-                        volBilinearIntg2Dpos, mesh2Dpos, BCstruct2Dpos, numCellsSemiInfinite_pos,...
-                        volBilinearIntg2Dneg, mesh2Dneg, BCstruct2Dneg, numCellsSemiInfinite_neg,...
-                        jumpLinearIntg2D, numCellsInfinite, numFloquetPoints, opts);
-  %%
-  % figure;
-  % figure(2)
-  subplot(1, 2, 2);
-  
-  for idS = 1:numCellsSemiInfinite_pos
-    for idI = 1:2*numCellsInfinite
-      Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
-      X = mesh2Dpos.points(:, 1) + (idS - 1);
-      Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
-
-      trisurf(mesh2Dpos.triangles, X, Y, real(Ur.positive(:, Icell)));
-      hold on;
-      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-      % colormap jet
-    end
-  end
-  %
-  for idS = 1:numCellsSemiInfinite_neg
-    for idI = 1:2*numCellsInfinite
-      Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
-      X = mesh2Dneg.points(:, 1) - (idS - 1);
-      Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
-      trisurf(mesh2Dneg.triangles, X, Y, real(Ur.negative(:, Icell)));
-      hold on;
-      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-      % colormap jet
-    end
-  end
-  %
-  %
-  xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
-  ylim([-numCellsInfinite, numCellsInfinite]);
-
-end
-
+% %% Compare U in the rational case
+% if (compareU)
+%   %
+%   tic;
+%   volBilinearIntg2D = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+% 
+%   BCstruct2Dpos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmin'));
+%   BCstruct2Dpos.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmax'));
+%   BCstruct2Dpos.BCdu = BCstruct_pos.BCdu;
+%   BCstruct2Dpos.BCu = BCstruct_pos.BCu;
+%   volBilinearIntg2Dpos = volBilinearIntg2D(mu2Dpos, rho2Dpos);
+% 
+%   %
+%   BCstruct2Dneg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmin'));
+%   BCstruct2Dneg.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmax'));
+%   BCstruct2Dneg.BCdu = BCstruct_neg.BCdu;
+%   BCstruct2Dneg.BCu = BCstruct_neg.BCu;
+%   volBilinearIntg2Dneg = volBilinearIntg2D(mu2Dneg, rho2Dneg);
+% 
+%   %
+%   % jumpLinearIntg2D = G * id(v);
+%   
+%   %
+%   Ur = PeriodicSpaceJumpBVP(1, 2, 1, ...
+%                         volBilinearIntg2Dpos, mesh2Dpos, BCstruct2Dpos, numCellsSemiInfinite_pos,...
+%                         volBilinearIntg2Dneg, mesh2Dneg, BCstruct2Dneg, numCellsSemiInfinite_neg,...
+%                         G, numCellsInfinite, numFloquetPoints, opts);
+%   toc;
+%   %
+%   E.positive = U2D.positive - Ur.positive;
+%   E.negative = U2D.negative - Ur.negative;
+% 
+%   %%
+%   % figure;
+%   % for idS = 1:numCellsSemiInfinite_pos
+%   %   for idI = 1:2*numCellsInfinite
+%   %     Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
+%   %     X = mesh2Dpos.points(:, 1) + (idS - 1);
+%   %     Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
+% 
+%   %     trisurf(mesh2Dpos.triangles, X, Y, real(Ur.positive(:, Icell)));
+%   %     hold on;
+%   %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   %     % caxis([-0.02, 0.02]);
+%   %     % colormap jet
+%   %   end
+%   % end
+%   % %
+%   % for idS = 1:numCellsSemiInfinite_neg
+%   %   for idI = 1:2*numCellsInfinite
+%   %     Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
+%   %     X = mesh2Dneg.points(:, 1) - (idS - 1);
+%   %     Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
+%   %     trisurf(mesh2Dneg.triangles, X, Y, real(Ur.negative(:, Icell)));
+%   %     hold on;
+%   %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   %     % colormap jet
+%   %     % caxis([-0.02, 0.02]);
+%   %   end
+%   % end
+%   
+%   % %
+%   % xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
+%   % ylim([-numCellsInfinite, numCellsInfinite]);
+%   % caxis([-0.025, 0.025]);
+% 
+% end
+% 
+% %%
+% % figure;
+% % U2Dcst = load('U2D.mat');
+% % E.positive = U2D.positive - U2Dcst.U2D.positive;
+% % E.negative = U2D.negative - U2Dcst.U2D.negative;
+% % for idS = 1:numCellsSemiInfinite_pos
+% %   for idI = 1:2*numCellsInfinite
+% %     Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
+% %     X = mesh2Dpos.points(:, 1) + (idS - 1);
+% %     Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
+% 
+% %     trisurf(mesh2Dpos.triangles, X, Y, real(E.positive(:, Icell)));
+% %     hold on;
+% %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+% %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+% %     % caxis([-0.02, 0.02]);
+% %     % colormap jet
+% %   end
+% % end
+% % %
+% % for idS = 1:numCellsSemiInfinite_neg
+% %   for idI = 1:2*numCellsInfinite
+% %     Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
+% %     X = mesh2Dneg.points(:, 1) - (idS - 1);
+% %     Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
+% %     trisurf(mesh2Dneg.triangles, X, Y, real(E.negative(:, Icell)));
+% %     hold on;
+% %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+% %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+% %     % colormap jet
+% %     % caxis([-0.02, 0.02]);
+% %   end
+% % end
+% 
+% % %%
+% % xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
+% % ylim([-numCellsInfinite, numCellsInfinite]);
+% % caxis([-0.0025, 0.00025]);
+% 
+% 
+% save output_periodic.mat

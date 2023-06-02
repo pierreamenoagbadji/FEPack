@@ -4,7 +4,7 @@
 %> @brief class for user-defined symbolic essential conditions
 % =========================================================================== %
 classdef SymBoundaryCondition < FEPack.FEPackObject
-  % FEPack.pdes.SymBoundaryCondition < FEPack.FEPackObject
+  % FEPack.applications.symBC.SymBoundaryCondition < FEPack.FEPackObject
 
   properties (SetAccess = public)
     
@@ -112,7 +112,8 @@ classdef SymBoundaryCondition < FEPack.FEPackObject
 
     function symBCres = assignRHS(symBC, rhs)
 
-      if (isa(rhs, 'double') || isa(rhs, 'function_handle'))
+      if (isa(rhs, 'double') || isa(rhs, 'function_handle') ||...
+          isa(rhs, 'FEPack.spaces.SpectralBasis'))
         
         % Set right-hand side
         symBCres = copy(symBC);

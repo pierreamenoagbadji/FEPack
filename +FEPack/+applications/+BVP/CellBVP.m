@@ -43,7 +43,37 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
     end
 
     function initialize(solbox, dimension, varargin)
-
+      % INITIALIZE(solbox, dimension)
+      % sets up the parameters for a boundary value problem
+      % posed in a cell of given dimension.
+      %
+      % The dimension can be followed by parameter/value pairs 
+      % to specify additional properties. Here are the available
+      % parameter/value pairs:
+      % 
+      % (*) 'structured' (logical variable): tells if the mesh is structured or not.
+      %
+      % (*) 'numEdgeNodes' (integer): number of nodes per cell edge.
+      %
+      % (*) 'BoundingBox' (dimension-by-2 matrix): 
+      %     (1D): [xmin, xmax]; (2D): [xmin, xmax; ymin, ymax]; 
+      %     (3D): [xmin, xmax; ymin, ymax; zmin, zmax].
+      %      
+      % (*) 'VolumeBilinearForm' (function_handle): it is of the form
+      %         @(dom, u, v) FEPack.pdes.Form.intg(dom, F(u, v)),
+      %    where dom represents the volume cell and 
+      %          F(u, v) is a bilinear function of u and v (eg. F(u, v) = u*v).
+      %
+      % (*) 'VolumeLinearForm' (double or function_handle): either constant or function of the form
+      %         @(dom, v) FEPack.pdes.Form.intg(dom, G(v)),
+      %    where dom represents the volume cell and 
+      %         G(v) is a linear function of v (eg. G(v) = v).
+      %     
+      % (*) 'BoundaryConditions': of the form
+      %       [1D]: @(u, xmax, xmin) ... (eg. @(u, xmax, xmin) ((u|xmin) == 0) & ((dn(u)|xmax) == 1))
+      %       [2D]: @(u, xmax, xmin, ymax, ymin) ...
+      %       [3D]: @(u, xmax, xmin, ymax, ymin, zmax, zmin) ...
+      
       % Preliminary check on the dimension
       validDimension = @(d) isnumeric(d) && isscalar(d) && (d > 0) && (d < 4);
       if ~validDimension(dimension)
@@ -54,32 +84,34 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
       defaultNumNodes = (2^(7-dimension)) * ones(1, dimension);
       defaultBB = [zeros(dimension, 1), ones(dimension, 1)];
       % By default the BVP
-      % -Delta(u) + u = 1 + homogeneous Neumann conditions on the boundary
+      % -Delta(u) + u = 1,
+      % combined with homogeneous Neumann conditions on the boundary,
       % is solved
       defaultBilinearForm = @(dom, u, v) FEPack.pdes.Form.intg(dom, grad(u)*grad(v) + u*v);
       defaultLinearForm = @(dom, v) FEPack.pdes.Form.intg(dom, v);
       defaultBC = @(u, varargin) FEPack.applications.symBC.symNeumannBC(dimension, u, varargin{:}); 
-      defaultBasis = 'Lagrange';
-      expectedBases = {'Fourier', 'Lagrange'};
-      defaultDimBasis = defaultNumNodes/2;  % Only for Fourier basis
+      % defaultBasis = 'Lagrange';
+      % expectedBases = {'Fourier', 'Lagrange'};
+      % defaultDimBasis = defaultNumNodes/2;  % Only for Fourier basis
 
       % Argument validation
       validNumNodes = @(N) isnumeric(N) && isvector(N) && (length(N) == dimension);
       validBB = @(BB) isnumeric(BB) && ismatrix(BB) && (size(BB, 1) == dimension) && (size(BB, 2) == 2);
-      validSymBC = @(symBC) isempty(symBC) || isa(symBC, 'function_handle');
-      validFun = @(form) isa(form, 'function_handle');
-      validBasis = @(sb) any(validatestring(sb, expectedBases));
+      validSymBC = @(symBC) isempty(symBC) || isa(symBC, 'FEPack.applications.symBC.SymBoundaryCondition');
+      validBilinearForm = @(blf) isa(blf, 'function_handle');
+      validLinearForm = @(lf) isa(lf, 'function_handle') || (isa(lf, 'double') && (length(lf) == 1));
+      % validBasis = @(sb) any(validatestring(sb, expectedBases));
 
       % Add inputs
       params = inputParser;
       params.addParameter('structured', false, @(x) islogical(x));
       params.addParameter('numEdgeNodes', defaultNumNodes, validNumNodes);
       params.addParameter('BoundingBox', defaultBB, validBB);
-      params.addParameter('VolumeBilinearForm', defaultBilinearForm, validFun);
-      params.addParameter('VolumeLinearForm', defaultLinearForm, validFun);
+      params.addParameter('VolumeBilinearForm', defaultBilinearForm, validBilinearForm);
+      params.addParameter('VolumeLinearForm', defaultLinearForm, validLinearForm);
       params.addParameter('BoundaryConditions', defaultBC, validSymBC);
-      params.addParameter('SpectralBasis', defaultBasis, validBasis);
-      params.addParameter('dimBasis', defaultDimBasis, validNumNodes);
+      % params.addParameter('SpectralBasis', defaultBasis, validBasis);
+      % params.addParameter('dimBasis', defaultDimBasis, validNumNodes);
       
       % Parse the inputs
       parse(params, varargin{:});
@@ -95,21 +127,21 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
         solbox.mesh = FEPack.meshes.MeshCuboid(entrees.structured, entrees.BoundingBox(1, :), entrees.BoundingBox(2, :), entrees.BoundingBox(3, :), entrees.numEdgeNodes(1), entrees.numEdgeNodes(2), entrees.numEdgeNodes(3));
       end
 
-      % Attach a spectral basis to the domains
-      for idI = 1:dimension
-        if strcmpi(entrees.SpectralBasis, 'Lagrange')
+      % % Attach a spectral basis to the domains
+      % for idI = 1:dimension
+      %   if strcmpi(entrees.SpectralBasis, 'Lagrange')
           
-          FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI-1});
-          FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI});
+      %     FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI-1});
+      %     FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI});
 
-        else
+      %   else
 
-          FourierIds = diag(entrees.dimBasis);
-          FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI-1}, FourierIds(idI, :));
-          FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI},   FourierIds(idI, :));
+      %     FourierIds = diag(entrees.dimBasis);
+      %     FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI-1}, FourierIds(idI, :));
+      %     FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI},   FourierIds(idI, :));
 
-        end
-      end 
+      %   end
+      % end 
 
       % Forms and boundary conditions
       solbox.volBilinearForm = entrees.VolumeBilinearForm;
@@ -219,7 +251,6 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
             G1 = symBC{IdBC(idI, idK)}.gamma1{idL};
             idA = (doms{2*idI-1} == symBC{IdBC(idI, idK)}.domain{idL});
 
-
             % Neumann term
             BCneu(idK, idA) = BCneu(idK, idA) + G1;
             
@@ -250,11 +281,18 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
                 
                 opDir{idK, idA}{1} = G0 * symBC{IdBC(idI, idK)}.fun{idL}{1};
                 opDir{idK, idA}{2} =      symBC{IdBC(idI, idK)}.fun{idL}{2};
+                opDir{idK, idA}{3} =      symBC{IdBC(idI, idK)}.fun{idL}{3};
 
               else
 
                 % Make sure the matrix to be added are compatible
-                if ~strcmpi(opDir{idK, idA}{2}, symBC{IdBC(idI, idK)}.fun{idL}{2})
+                if ~strcmpi(class(opDir{idK, idA}{2}), class(symBC{IdBC(idI, idK)}.fun{idL}{2}))
+                  
+                  error(['La condition aux limites fait intervenir ',...
+                         'deux opérateurs définis sur le même ',...
+                         'domaine : ceux-ci doivent être évalués avec le même type de base.']);
+
+                elseif ~strcmpi(opDir{idK, idA}{3}, symBC{IdBC(idI, idK)}.fun{idL}{3})
                   
                   error(['La condition aux limites fait intervenir ',...
                          'deux opérateurs définis sur le même ',...
@@ -265,6 +303,7 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
                   
                   opDir{idK, idA}{1} = G0 * symBC{IdBC(idI, idK)}.fun{idL}{1} + opDir{idK, idA}{1};
                   opDir{idK, idA}{2} =      symBC{IdBC(idI, idK)}.fun{idL}{2};
+                  opDir{idK, idA}{3} =      symBC{IdBC(idI, idK)}.fun{idL}{3};
 
                 end % if
               end % if
