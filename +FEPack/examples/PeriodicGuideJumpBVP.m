@@ -1,7 +1,7 @@
-function [U, Uint, dUint] = PeriodicGuideJumpBVP(semiInfiniteDirection,...
-                                                volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCells_pos,...
-                                                volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
-                                                jumpData, opts)
+function U = PeriodicGuideJumpBVP(semiInfiniteDirection,...
+                                  volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCells_pos,...
+                                  volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
+                                  jumpData, opts)
 
   % PeriodicSpaceBVP
   % warning('Uniquement Dirichlet (saut Neumann)');
@@ -61,16 +61,16 @@ function [U, Uint, dUint] = PeriodicGuideJumpBVP(semiInfiniteDirection,...
     U.negative(:, idCell) = Uneg{idCell} * solphi;
   end
 
-  % Trace and normal trace of U
-  if (BCstruct_pos.spB0.is_interpolated)
-    Uint = BCstruct_pos.spB0.phis * solphi;
-    dUint.positive = BCstruct_pos.spB0.phis * Lambda_pos * solphi;
-    dUint.negative = BCstruct_neg.spB0.phis * Lambda_neg * solphi;
-  else
-    Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
+  % % Trace and normal trace of U
+  % if (BCstruct_pos.spB0.is_interpolated)
+  %   Uint = BCstruct_pos.spB0.phis * solphi;
+  %   dUint.positive = BCstruct_pos.spB0.phis * Lambda_pos * solphi;
+  %   dUint.negative = BCstruct_neg.spB0.phis * Lambda_neg * solphi;
+  % else
+  %   Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
 
-    Uint = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * solphi;
-    dUint.positive = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * Lambda_pos * solphi;
-    dUint.negative = BCstruct_neg.spB0.phis(mesh_pos.points(Sigma0neg.IdPoints, :), 1:BCstruct_neg.spB0.numBasis) * Lambda_neg * solphi;
-  end
+  %   Uint = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * solphi;
+  %   dUint.positive = BCstruct_pos.spB0.phis(mesh_pos.points(Sigma0pos.IdPoints, :), 1:BCstruct_pos.spB0.numBasis) * Lambda_pos * solphi;
+  %   dUint.negative = BCstruct_neg.spB0.phis(mesh_pos.points(Sigma0neg.IdPoints, :), 1:BCstruct_neg.spB0.numBasis) * Lambda_neg * solphi;
+  % end
 end

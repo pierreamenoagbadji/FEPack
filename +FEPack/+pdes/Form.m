@@ -307,8 +307,8 @@ classdef Form < FEPack.FEPackObject
       %
       % OUTPUTS: * Aglob, a N-by-N matrix, where N is the number of DOFs.
 
-      N = domain.mesh.numDOFglo;      % Total number of degrees of freedom
-      numDOFloc = domain.numDOFloc;   % Number of degrees of freedom associated to an element of the domain
+      N = domain.mesh.numPoints;        % Total number of degrees of freedom
+      numDOFloc = domain.dimension + 1; % Number of degrees of freedom associated to an element of the domain
       dd = numDOFloc * numDOFloc;
 
       II = zeros(domain.numElts*dd, 1);
@@ -375,7 +375,31 @@ classdef Form < FEPack.FEPackObject
       alpha_u = varargin{2};
       alpha_v = varargin{3};
       Ncoo = size(alpha_u, 1);
-      default_fun = (nargin < 4) || (nargin >= 4 && isempty(varargin{4}));
+      N = dom.mesh.numPoints;
+      AA = sparse(N, N);
+
+      if ((norm(alpha_u, inf) < eps) || (norm(alpha_v, inf) < eps))
+         
+        1
+        return
+      
+      end
+
+      if (nargin < 5)
+        quadRule = FEPack.tools.QuadratureObject(dom.dimension);
+        
+        if (nargin < 4)
+          varargin = [varargin, {[]}, {quadRule}];
+        else
+          varargin = [varargin, {quadRule}];
+        end
+      end
+
+      if (numel(varargin) ~= 5)
+        error(['Bug: varargin devrait avoir 5 éléments, et non ', int2str(numel(varargin))]);
+      end
+
+      default_fun = isempty(varargin{4});
 
       % Computing tangential derivative on surfacic domain is not allowed (yet)
       if (((dom.dimension < dom.mesh.dimension) || (dom.dimension == 0)) && ...
@@ -411,36 +435,19 @@ classdef Form < FEPack.FEPackObject
       end
 
       non_null_coeffs = @(Au, Av) (norm(Au, Inf) > eps) && (norm(Av, Inf) > eps);
-      N = dom.mesh.numDOFglo;
-      AA = sparse(N, N);
+      
+      if ((default_fun) || (~default_fun && length(varargin{4}([0, 0, 0])) == 1))
 
-      if (default_fun)
-
-        % fun = 1 by default
-        % //////////////////
+        % Default function (f = 1) or function with scalar output
+        % ///////////////////////////////////////////////////////
         for Icoo = 1:Ncoo
           if non_null_coeffs(alpha_u(Icoo, :), alpha_v(Icoo, :))
             % Add a contribution only if both the terms are non zero
-            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :));
+            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), varargin{4:end});
 
             AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
           end
         end
-
-      elseif (length(varargin{4}([0, 0, 0])) == 1)
-
-        % Function with scalar output
-        % ///////////////////////////
-        for Icoo = 1:Ncoo
-          % Add a contribution only if both the terms are non zero
-          if (non_null_coeffs(alpha_u(Icoo, :), alpha_v(Icoo, :)))
-            % Elementary matrix
-            Aloc = @(P) FEPack.pdes.Form.mat_elem(P, dom.dimension, dom.mesh.dimension, alpha_u(Icoo, :), alpha_v(Icoo, :), varargin{4:end});
-
-            % Update the matrix
-            AA = AA + FEPack.pdes.Form.assembleFEmatrices(dom, Aloc);
-          end % if
-        end % for
 
       else
 

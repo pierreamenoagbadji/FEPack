@@ -18,7 +18,7 @@ classdef MeshCuboid < FEPack.meshes.Mesh
     % ============= %
     % Create a mesh %
     % ============= %
-    function mesh = MeshCuboid(generate_mesh, is_structured, BBx, BBy, BBz, ...
+    function mesh = MeshCuboid(is_structured, BBx, BBy, BBz, ...
                                numNodesX, numNodesY, numNodesZ, side_names, name, sorttol)
       % MeshCuboid constructor for mesh of a cuboid
       %

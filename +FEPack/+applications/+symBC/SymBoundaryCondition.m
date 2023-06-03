@@ -19,11 +19,6 @@ classdef SymBoundaryCondition < FEPack.FEPackObject
 
     %> @brief Coefficients of normal trace on boundaries
     gamma1 = {};
-    
-    %> @brief For Robin boundary conditions of the forms
-    %> 1. alpha*dn(u) + f(x)*u = b   (fun = f is a function handle)
-    %> 2. alpha*dn(u) +   T(u) = b   (fun = T is a matrix) 
-    fun = cell(1, 2);
 
   end
 
@@ -49,6 +44,7 @@ classdef SymBoundaryCondition < FEPack.FEPackObject
     end
 
     function symBCres = plus(symBCa, symBCb)
+
       % Preliminary verifications
       check_domains_compatibility(symBCa, symBCb);
       rhs_verification(symBCa, 0);
@@ -59,47 +55,22 @@ classdef SymBoundaryCondition < FEPack.FEPackObject
       symBCres.domain = [symBCres.domain; symBCb.domain];
       symBCres.gamma0 = [symBCres.gamma0; symBCb.gamma0];
       symBCres.gamma1 = [symBCres.gamma1; symBCb.gamma1];
-      symBCres.fun = [symBCres.fun; symBCb.fun];
-      % symBCres.op = [symBCres.op; symBCb.op];
 
-
-      % symBCres.gamma0 = [symBCa.gamma0; symBCb.gamma0];
-      % symBCres.gamma1 = [symBCa.gamma1; symBCb.gamma1];
-
-
-      % for idI = 1:2
-
-      %   if isempty(symBCres.fun{1, idI})
-      %     % BCa has no function
-      %     symBCres.fun{1, idI} = symBCb.fun{1, idI};
-      %   elseif ~isempty(symBCb.fun{1, idI})
-      %     % BCa and BCb both has functions
-      %     symBCres.fun{1, idI} = @(P) symBCres.fun{1, idI} + symBCb.fun{1, idI};
-      %   end % remains the case where Bca has a function and BCb has no function: nothing changes.
-
-      %   if isempty(symBCres.op{1, idI})
-      %     symBCres.op{1, idI} = symBCb.op{1, idI};
-      %   elseif ~isempty(symBCb.op{1, idI})
-      %     symBCres.op{1, idI} = @(P) symBCres.op{1, idI} + symBCb.op{1, idI};
-      %   end
-
-      % end
     end
 
-    function symBCres = mtimes(T, symBC)
+    function symBCres = mtimes(lhs, symBC)
       rhs_verification(symBC, 0);
       symBCres = copy(symBC);
 
-      if ~(isa(T, 'double') && (length(T) == 1))
+      if ~isscalar(lhs)
         error('La multiplication ne peut se faire que par un scalaire');
       end
 
       for idT = 1:length(symBC.domain)
-        symBCres.gamma0{idT} = T * symBCres.gamma0{idT}; 
-        symBCres.gamma1{idT} = T * symBCres.gamma1{idT};
+        symBCres.gamma0{idT} = lhs * symBCres.gamma0{idT}; 
+        symBCres.gamma1{idT} = lhs * symBCres.gamma1{idT};
       end 
-      % symBCres.gamma0{1} = T * symBCres.gamma0{1}; 
-      % symBCres.gamma1{1} = T * symBCres.gamma1{1}; 
+      
     end
 
     function symBCres = uminus(symBC)
@@ -118,17 +89,6 @@ classdef SymBoundaryCondition < FEPack.FEPackObject
         % Set right-hand side
         symBCres = copy(symBC);
         symBCres.rhs = rhs;
-
-        % % Replace empty elements of symBCres.fun and symBCres.op by 1
-        % for idI = 1:2
-        %   if isempty(symBCres.fun{1, idI})
-        %      symBCres.fun{1, idI} = 1;
-        %   end
-
-        %   if isempty(symBCres.op{1, idI})
-        %      symBCres.op{1, idI} = 1;
-        %   end
-        % end
         
       else
       

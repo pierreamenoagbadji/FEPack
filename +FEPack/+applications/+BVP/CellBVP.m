@@ -24,12 +24,12 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
 
   end
 
-  properties (SetAccess = private)
+  % properties (SetAccess = private)
 
-    %> @brief Has the object been initialized?
-    is_initialized = false;
+  %   %> @brief Has the object been initialized?
+  %   is_initialized = false;
 
-  end
+  % end
 
   methods
 

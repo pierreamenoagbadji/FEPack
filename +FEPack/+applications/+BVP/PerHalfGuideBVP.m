@@ -3,19 +3,25 @@
 % =========================================================================== %
 % class for solver of periodic half-guide problem
 % =========================================================================== %
-classdef PerHalfGuideBVP < FEPack.applications.BVPObject
-  % FEPack.applications.PerHalfGuideBVP < FEPack.applications.BVPObject
+classdef PerHalfGuideBVP < FEPack.applications.BVP.BVPObject
+  % FEPack.applications.PerHalfGuideBVP < FEPack.applications.BVP.BVPObject
 
   properties (SetAccess = protected)
+
+    % Infinite direction of the guide
+    semiInfiniteDirection = [];
+
+    % Orientation of the guide
+    orientation = [];
 
     % Mesh of the periodc cell
     mesh = [];
 
-    % Volume bilinear form
-    volBilinearForm = [];
+    % Volume bilinear integrand
+    volumeBilinearIntegrand = [];
 
-    % Volume linear form
-    volLinearForm = [];
+    % Volume linear integrand
+    volumeLinearIntegrand = [];
 
     % Symbolic boundary conditions
     boundaryConditions = [];
@@ -47,10 +53,13 @@ classdef PerHalfGuideBVP < FEPack.applications.BVPObject
       %
       % (*) 'semiInfiniteDirection' (integer between 1 and dimension): 
       %      the infinite dimension of the half-guide.
+      %
+      % (*) 'orientation' (1 or -1): tells if the guide goes to +infinity or -infinity.
       % 
       % =========== %
       % Mesh inputs %
       % =========== %
+      % (*) 'mesh' (FEPack.meshes.Mesh object): pregenerated mesh
       % (*) 'structured' (logical variable): tells if the mesh is structured or not.
       %
       % (*) 'numEdgeNodes' (integer): number of nodes per cell edge.
@@ -65,14 +74,14 @@ classdef PerHalfGuideBVP < FEPack.applications.BVPObject
       % (*) 'volumeBilinearIntegrand' (function_handle @(u, v) F(u, v)),
       %      eg. F(u, v) = grad(u) * grad(v) + u * v.
       %      
-      % (*) 'VolumeLinearForm' (double or function_handle @(v) G(v)),
+      % (*) 'volumeLinearIntegrand' (double or function_handle @(v) G(v)),
       %      eg. G(v) = v.
-      %     
-      % (*) 'BoundaryConditions': of the form
+      % 
+      % (*) 'boundaryConditions': of the form
       %       [1D]: @(u, xmax, xmin) ... (eg. @(u, xmax, xmin) ((u|xmin) == 0) & ((dn(u)|xmax) == 1))
       %       [2D]: @(u, xmax, xmin, ymax, ymin) ...
       %       [3D]: @(u, xmax, xmin, ymax, ymin, zmax, zmin) ...
-      
+      %
       % Preliminary check on the dimension
       validDimension = @(d) isnumeric(d) && isscalar(d) && (d > 0) && (d < 4);
       
@@ -82,107 +91,134 @@ classdef PerHalfGuideBVP < FEPack.applications.BVPObject
 
       % Default values
       default_semiInfiniteDirection = 1;
+      default_orientation = 1;
+      default_mesh = [];
       default_numEdgeNodes = (2^(7-dimension)) * ones(1, dimension);
       default_boundingBox = [zeros(dimension, 1), ones(dimension, 1)];
-      default_volBilinearIntg = @(u, v) grad(u)*grad(v) + u*v;
-      default_volLinearIntg = @(v) v;
-
-
+      default_volBilinearIntg = @(u, v) grad(u) * grad(v) + u * v;
+      default_volLinearIntg = 0;
+      default_boundaryCdts = @(varargin) FEPack.applications.BVP.PerHalfGuideBVP.DirichletPlusPeriodic(semiInfiniteDirection, dimension, varargin); 
+      
       % Validation
-      valid_semiInfiniteDirection = @(d) isnumeric(d) && isscalar(d) && (d > 0) && (d < dimension);
+      valid_semiInfiniteDirection = @(d) isnumeric(d) && isscalar(d) && (d > 0) && (d <= dimension);
+      valid_orientation = @(o) max([-1 1] == o);
+      valid_mesh = @(msh) (isa(msh, 'FEPack.meshes.Mesh') && msh.dimension == dimension) || isempty(msh);
       valid_numEdgeNodes = @(N) isnumeric(N) && isvector(N) && (length(N) == dimension);
       valid_boundingBox = @(BB) isnumeric(BB) && ismatrix(BB) && (size(BB, 1) == dimension) && (size(BB, 2) == 2);
       valid_volBilinearIntg = @(blf) isa(blf, 'function_handle');
       valid_volLinearIntg = @(lf) isa(lf, 'function_handle') || (isnumeric(lf) && isscalar(lf));
-      
+      valid_boundaryCdts = @(bc) isa(bc, 'function_handle');
 
       % Input
       params = inputParser;
       params.addParameter('semiInfiniteDirection', default_semiInfiniteDirection, valid_semiInfiniteDirection);
-      %
+      params.addParameter('orientation', default_orientation, valid_orientation);                                              
+      params.addParameter('mesh', default_mesh, valid_mesh);
       params.addParameter('structured', false, @(x) islogical(x));
       params.addParameter('numEdgeNodes', default_numEdgeNodes, valid_numEdgeNodes);
       params.addParameter('boundingBox', default_boundingBox, valid_boundingBox);
       params.addParameter('volumeBilinearIntegrand', default_volBilinearIntg, valid_volBilinearIntg);
       params.addParameter('volumeLinearIntegrand', default_volLinearIntg, valid_volLinearIntg);
-
-
-
-
-
-
-
-      defaultNumNodes = (2^(7-dimension)) * ones(1, dimension);
-      defaultBB = [zeros(dimension, 1), ones(dimension, 1)];
-      % By default the BVP
-      % -Delta(u) + u = 1,
-      % combined with homogeneous Neumann conditions on the boundary,
-      % is solved
-      defaultBilinearForm = @(dom, u, v) FEPack.pdes.Form.intg(dom, grad(u)*grad(v) + u*v);
-      defaultLinearForm = @(dom, v) FEPack.pdes.Form.intg(dom, v);
-      defaultBC = @(u, varargin) FEPack.applications.symBC.symNeumannBC(dimension, u, varargin{:}); 
-      % defaultBasis = 'Lagrange';
-      % expectedBases = {'Fourier', 'Lagrange'};
-      % defaultDimBasis = defaultNumNodes/2;  % Only for Fourier basis
-
-      % Argument validation
-      validNumNodes = @(N) isnumeric(N) && isvector(N) && (length(N) == dimension);
-      validBB = @(BB) isnumeric(BB) && ismatrix(BB) && (size(BB, 1) == dimension) && (size(BB, 2) == 2);
-      validSymBC = @(symBC) isempty(symBC) || isa(symBC, 'FEPack.applications.symBC.SymBoundaryCondition');
-      validBilinearForm = @(blf) isa(blf, 'function_handle');
-      validLinearForm = @(lf) isa(lf, 'function_handle') || (isa(lf, 'double') && (length(lf) == 1));
-      % validBasis = @(sb) any(validatestring(sb, expectedBases));
-
-      % Add inputs
-      params = inputParser;
-      params.addParameter('structured', false, @(x) islogical(x));
-      params.addParameter('numEdgeNodes', defaultNumNodes, validNumNodes);
-      params.addParameter('BoundingBox', defaultBB, validBB);
-      params.addParameter('VolumeBilinearForm', defaultBilinearForm, validBilinearForm);
-      params.addParameter('VolumeLinearForm', defaultLinearForm, validLinearForm);
-      params.addParameter('BoundaryConditions', defaultBC, validSymBC);
-      % params.addParameter('SpectralBasis', defaultBasis, validBasis);
-      % params.addParameter('dimBasis', defaultDimBasis, validNumNodes);
+      params.addParameter('boundaryConditions', default_boundaryCdts, valid_boundaryCdts);
       
       % Parse the inputs
       parse(params, varargin{:});
       entrees = params.Results;
       
-      % Construct the mesh
-      switch (dimension)
-      case 1
-        solbox.mesh = FEPack.meshes.MeshSegment('uniform', entrees.BoundingBox(1), entrees.BoundingBox(2), entrees.numEdgeNodes);
-      case 2
-        solbox.mesh = FEPack.meshes.MeshRectangle(entrees.structured, entrees.BoundingBox(1, :), entrees.BoundingBox(2, :), entrees.numEdgeNodes(1), entrees.numEdgeNodes(2));
-      case 3
-        solbox.mesh = FEPack.meshes.MeshCuboid(entrees.structured, entrees.BoundingBox(1, :), entrees.BoundingBox(2, :), entrees.BoundingBox(3, :), entrees.numEdgeNodes(1), entrees.numEdgeNodes(2), entrees.numEdgeNodes(3));
+      % Geometric arguments
+      solbox.semiInfiniteDirection = entrees.semiInfiniteDirection;
+      solbox.orientation = entrees.orientation;
+
+      if ~isempty(entrees.mesh)
+
+        % Pregenerated mesh
+        solbox.mesh = entrees.mesh;
+
+      else
+
+        % Generate the mesh
+        switch (dimension)
+        case 1
+          solbox.mesh = FEPack.meshes.MeshSegment('uniform', entrees.BoundingBox(1), entrees.BoundingBox(2), entrees.numEdgeNodes);
+        case 2
+          solbox.mesh = FEPack.meshes.MeshRectangle(entrees.structured, entrees.BoundingBox(1, :), entrees.BoundingBox(2, :), entrees.numEdgeNodes(1), entrees.numEdgeNodes(2));
+        case 3
+          solbox.mesh = FEPack.meshes.MeshCuboid(entrees.structured, entrees.BoundingBox(1, :), entrees.BoundingBox(2, :), entrees.BoundingBox(3, :), entrees.numEdgeNodes(1), entrees.numEdgeNodes(2), entrees.numEdgeNodes(3));
+        end
+      
       end
-
-      % % Attach a spectral basis to the domains
-      % for idI = 1:dimension
-      %   if strcmpi(entrees.SpectralBasis, 'Lagrange')
-          
-      %     FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI-1});
-      %     FEPack.spaces.PeriodicLagrangeBasis(solbox.mesh.domains{2*idI});
-
-      %   else
-
-      %     FourierIds = diag(entrees.dimBasis);
-      %     FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI-1}, FourierIds(idI, :));
-      %     FEPack.spaces.FourierBasis(solbox.mesh.domains{2*idI},   FourierIds(idI, :));
-
-      %   end
-      % end 
-
+      
       % Forms and boundary conditions
-      solbox.volBilinearForm = entrees.VolumeBilinearForm;
-      solbox.volLinearForm = entrees.VolumeLinearForm;
-      solbox.boundaryConditions = entrees.BoundaryConditions;
+      solbox.volumeBilinearIntegrand = entrees.volumeBilinearIntegrand;
+      solbox.volumeLinearIntegrand = entrees.volumeLinearIntegrand;
+      solbox.boundaryConditions = entrees.boundaryConditions;
 
       solbox.is_initialized = true;
 
     end
 
+    function solve(solbox)
+      % SOLVE(solbox)
+      % solve the boundary value problem whose parameters
+      % have been previously initialized
+      
+      % Make sure the object has been initialized
+      if ~(solbox.is_initialized)
+        error('Il faut d''abord utiliser FEPack.applications.BVP.PerHalfGuideBVP.initialize().');
+      end
+
+      % ========= %
+      % FE matrix %
+      % ========= %
+      AA = FEPack.pdes.Form.intg(solbox.mesh.domain('volumic'), solbox.volumeBilinearIntegrand);
+      
+      % =================== %
+      % Boundary conditions %
+      % =================== %
+      usym = FEPack.applications.symBC.SymPDEObject;
+      symBC = solbox.boundaryConditions(usym, doms{1:2*dimension});
+
+      % Find the boundary condition corresponding to the transverse interface
+      
+    end
+
   end
 
+  methods (Static)
+
+    function symbc = NeumannPlusPeriodic(semiInfiniteDirection, dimension, u, varargin)
+
+      symbc = FEPack.applications.symBC.SymBoundaryCondition;
+
+      % Neumann Conditions
+      idNeu = semiInfiniteDirection;
+      symbc = symbc & ((dn(u)|varargin{idNeu}) == 1);
+      
+      % Periodic conditions
+      idPer = 1:dimension; idPer(idNeu) = [];
+      for idI = 1:dimension-1
+        symbc = symbc & (((    u|varargin{2*idPer(idI)-1}) - (    u|varargin{2*idPer(idI)})) == 0) &...
+                        (((dn(u)|varargin{2*idPer(idI)-1}) - (dn(u)|varargin{2*idPer(idI)})) == 0);
+      end
+
+    end
+
+    function symbc = DirichletPlusPeriodic(semiInfiniteDirection, dimension, u, varargin)
+
+      symbc = FEPack.applications.symBC.SymBoundaryCondition;
+
+      % Dirichlet Conditions
+      idNeu = semiInfiniteDirection;
+      symbc = symbc & ((u|varargin{idNeu}) == 1);
+      
+      % Periodic conditions
+      idPer = 1:dimension; idPer(idNeu) = [];
+      for idI = 1:dimension-1
+        symbc = symbc & (((    u|varargin{2*idPer(idI)-1}) - (    u|varargin{2*idPer(idI)})) == 0) &...
+                        (((dn(u)|varargin{2*idPer(idI)-1}) - (dn(u)|varargin{2*idPer(idI)})) == 0);
+      end
+
+    end
+
+  end
 end

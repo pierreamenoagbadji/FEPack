@@ -8,6 +8,7 @@ classdef BVPObject < FEPack.FEPackObject
 
   properties (SetAccess = protected)
 
+    is_initialized = false;
 
   end
 

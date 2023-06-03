@@ -38,21 +38,7 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
     function ures = mtimes(lhs, u)
       ures = copy(u);
       
-      if isa(lhs, 'function_handle')
-
-        % Multiplication by function
-        normal_derivative_not_allowed(u);
-        if isempty(u.fun)
-
-          ures.fun = @(P) lhs(P);
-        
-        else % a function handle is already attached to u
-        
-          ures.fun = @(P) lhs(P) * ures.fun(P);
-        
-        end
-
-      elseif isa(lhs, 'double') && (length(lhs) == 1)
+      if isa(lhs, 'double') && (length(lhs) == 1)
 
         % Trivial multiplication by a scalar
         ures.alpha = lhs * u.alpha;
@@ -61,9 +47,8 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
 
         % Multiplication should be by a function or a scalar
         error(['La multiplication ne peut se faire par une instance ', class(lhs),...
-               '; seules les ''function_handle'' et les scalaires sont autorisés.']);
+               '; seuls les scalaires sont autorisés.']);
       
-        
       end 
 
     end
@@ -83,8 +68,6 @@ classdef SymPDEObject < FEPack.pdes.PDEObject
           symBC.gamma0 = {u.alpha}; % {u.alpha};
           symBC.gamma1 = {0}; % {[0 0]};
         end
-
-        symBC.fun = {u.fun};
 
       else
 

@@ -60,6 +60,8 @@ function U = CellBVP(mesh, bilinearIntg, linearIntg, ecs)
   LL0 = ecs.P * LL;
 
   % Compute the solution
-  U = ecs.P' * (AA0 \ LL0) + kron(ones(1, mV), ecs.b);
-
+  U0 = ecs.P' * (AA0 \ LL0);% + 
+  
+  U = U0 + kron(ones(1, mV), ecs.b);
+  
 end
