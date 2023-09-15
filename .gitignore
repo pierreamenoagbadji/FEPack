@@ -1,5 +1,6 @@
 # Ignore the outputs folder
 /+FEPack/outputs/
+/+FEPack/resultats_nums/
 
 # Ignore the gmsh folder
 /gmsh-4.10.5-Linux64/*
@@ -10,3 +11,6 @@
 /+FEPack/FEPackmesh.geo
 /+FEPack/FEPackmesh.m
 /+FEPack/pregenMeshes/*
+
+# Ignore xlifepp
+/ref_xlifepp/*

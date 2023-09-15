@@ -281,9 +281,6 @@ function quasi2DHalfGuideDirichlet(orientation, meshYZ, meshZX, meshXY, omega, m
     save(['outputs/half_guide_sol_', opts.suffix, '_Floquet_', num2str(idFB)], '-struct', 'solguide', '-v7.3');
   end
 
-  % Delete 
-
-
 end
 
 %% Auxiliary function: The flux function

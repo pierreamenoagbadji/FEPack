@@ -100,4 +100,5 @@ BCstruct.BCu = 1.0;
 BCstruct.representation = 'projection';
 
 %% Solve transmission problem
+opts.suffix = 'pos';
 quasi2DHalfGuideDirichlet(+1, meshYZ, meshZX, meshXYpos, omega, mu3Dpos, rho3Dpos, BCstruct, opts);
