@@ -163,7 +163,7 @@ classdef FEDomain < FEPack.FEPackObject
       X = zeros(d, N);
       isLocated = zeros(N, 1);
       mm = -Inf*ones(1, N);
-      fprintf('Localisation dans maillage.\n');
+      % fprintf('Localisation dans maillage.\n');
 
       while (true) % Loop through the elements
         % S = [x1, ...., x_d; y1, ...., y_d; z1, ...., z_d]
@@ -201,7 +201,7 @@ classdef FEDomain < FEPack.FEPackObject
 
         % Stop the algorithm if all the points have been located
         if (isLocated)
-          fprintf('Tous les points ont été trouvés.\n');
+          % fprintf('Tous les points ont été trouvés.\n');
           break;
         else
           idElt = idElt + 1;

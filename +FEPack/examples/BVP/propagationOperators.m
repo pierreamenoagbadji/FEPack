@@ -35,7 +35,10 @@ end
 % **************************** %
 % Solve the eigenvalue problem %
 % **************************** %
+tic;
 [V, E] = eig(full(A), full(B));
+tps = toc;
+fprintf('Elapsed time for eig: %f seconds.\n', tps);
 
 % Extract the eigenvalues and normalize the eigenvectors
 E = diag(E);

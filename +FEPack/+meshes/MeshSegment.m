@@ -17,6 +17,10 @@ classdef MeshSegment < FEPack.meshes.Mesh
 
     % ============= %
     % Create a mesh %
+    %
+    % **************************************** %
+    % REMARQUES : enlever FEorder de la partie %
+    % **************************************** %
     % ============= %
     function mesh = MeshSegment(varargin)
       % MeshSegment constructor for segment mesh
@@ -99,7 +103,7 @@ classdef MeshSegment < FEPack.meshes.Mesh
       mesh.segments = [(1:numPoints-1).', (2:numPoints).'];
       mesh.refPoints = [1; zeros(numPoints-2, 1); 2];
       mesh.refSegments = zeros(mesh.numSegments, 1);
-      mesh.attachFEorder(FEorder);
+      % mesh.attachFEorder(FEorder);
       mesh.maps{1} = numPoints;
       mesh.maps{2} = 1;
       numD = [2; 1]; % The domains are ordered as : xmax - xmin

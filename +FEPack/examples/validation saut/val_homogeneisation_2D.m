@@ -3,9 +3,10 @@ clear; clc;
 % homogeneisation_2D(5 + 0.5i, 0.5,  2);
 % homogeneisation_2D(5 + 0.5i, 0.25, 3);
 
-homogeneisation_2D(0.5 + 0.5i);
-homogeneisation_2D(0.25 + 0.25i);
-homogeneisation_2D(0.125 + 0.125i);
+homogeneisation_2D(8 + 0.05i);
+% homogeneisation_2D(5 + 0.5i);
+% homogeneisation_2D(0.25 + 0.25i);
+% homogeneisation_2D(0.125 + 0.125i);
 
 
 function homogeneisation_2D(freq, period, suffix)
@@ -20,17 +21,19 @@ function homogeneisation_2D(freq, period, suffix)
   coSemiInf = 1;
   coInf = 2;
 
-  mu_pos = @(x) 4*ones(size(x, 1), 1);
+  % mu_pos = @(x) 4*ones(size(x, 1), 1);
   % mu_pos = @(x) [ones(size(x, 1), 1), zeros(size(x, 1), 1); zeros(size(x, 1), 1), 2 * ones(size(x, 1), 1)];
   % mu_pos = @(x) [2 + sin(2*pi*x(:, 1)/period), zeros(size(x, 1), 1); zeros(size(x, 1), 1), 4 * ones(size(x, 1), 1)];
   % mu_pos = @(x) (2 + sin(2*pi*x(:, 1))) .* (4 + sin(2*pi*x(:, 2)));
-  rho_pos = @(x) 2 + 0.5*cos(2*pi*x(:, 1)/period).*sin(2*pi*x(:, 2)/period);
+  
+  mu_pos = @(x) ones(size(x, 1), 1);% 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
+  rho_pos = @(x) ones(size(x, 1), 1);% 1 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
 
-  mu_pos_eff = @(x) 4*ones(size(x, 1), 1);
+  % mu_pos_eff = @(x) 4*ones(size(x, 1), 1);
   % mu_pos_eff = @(x) [ones(size(x, 1), 1), zeros(size(x, 1), 1); zeros(size(x, 1), 1), 2 * ones(size(x, 1), 1)];
   % mu_pos_eff = @(x) [sqrt(3) * ones(size(x, 1), 1), zeros(size(x, 1), 1); zeros(size(x, 1), 1), 4 * ones(size(x, 1), 1)];
   % mu_pos_eff = @(x) [4*sqrt(3) * ones(size(x, 1), 1), zeros(size(x, 1), 1); zeros(size(x, 1), 1), 2*sqrt(15) * ones(size(x, 1), 1)];
-  rho_pos_eff = @(x) 2*ones(size(x, 1), 1);
+  % rho_pos_eff = @(x) 2*ones(size(x, 1), 1);
 
   mu_neg = @(x)  ones(size(x, 1), 1); % 1 + 0.5*sin(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
   rho_neg = @(x) ones(size(x, 1), 1); % 1 + 0.25*sin(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2)); 
@@ -38,8 +41,11 @@ function homogeneisation_2D(freq, period, suffix)
   % mu_glo = @(x) (x(:, coSemiInf) >= 0) .* mu_pos(x) + (x(:, coSemiInf) < 0) .* mu_neg(x);
   % rho_glo = @(x) (x(:, coSemiInf) >= 0) .* rho_pos(x) + (x(:, coSemiInf) < 0) .* rho_neg(x);
 
-
-  G = @(x) FEPack.tools.cutoff(x(:, 2), -1.0, 1.0);
+  alpha_G = 3;
+  eps_G = 1e-8;
+  supp_G = -log(eps_G) / alpha_G;
+  G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
+  % G = @(x) FEPack.tools.cutoff(x(:, 2), -1.0, 1.0);
 
   structmesh = 0;
   basis_functions = 'Lagrange';
@@ -47,12 +53,14 @@ function homogeneisation_2D(freq, period, suffix)
   volBilinearIntg = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
   % plot_coefficients = false;
 
-  N = 32;
+  N = 50;
 
   %% Parameters for the positive half-guide
   %  //////////////////////////////////////
-  BB = [0, period; 0, period]; BB(coSemiInf, 2) = +period;
-  mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N, 1);
+  % BB = [0, period; 0, period]; BB(coSemiInf, 2) = +period;
+  % mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+  m = load(['pregenMeshes/2D/unstruct_mesh_2D_', int2str(N), '_positive.mat']);
+  mesh_pos = m.mesh;
 
   if strcmpi(basis_functions, 'Lagrange')
     BCstruct_pos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_pos.domains{2*coSemiInf});
@@ -67,12 +75,14 @@ function homogeneisation_2D(freq, period, suffix)
   BCstruct_pos.BCu = 1.0;% @(x) 1 + 0.5*sin(2*pi*x(:, 1));% 1.0;
   BCstruct_pos.representation = '';
   volBilinearIntg_pos = volBilinearIntg(mu_pos, rho_pos);
-  volBilinearIntg_pos_eff = volBilinearIntg(mu_pos_eff, rho_pos_eff);
+  % volBilinearIntg_pos_eff = volBilinearIntg(mu_pos_eff, rho_pos_eff);
 
   %% Parameters for the negative half-guide
   %  //////////////////////////////////////
-  BB = [0, period; 0, period]; BB(coSemiInf, 2) = -period;
-  mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N, 1);
+  % BB = [0, period; 0, period]; BB(coSemiInf, 2) = -period;
+  % mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+  m = load(['pregenMeshes/2D/unstruct_mesh_2D_', int2str(N), '_negative_X.mat']);
+  mesh_neg = m.mesh;
 
   if strcmpi(basis_functions, 'Lagrange')
     BCstruct_neg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_neg.domains{2*coSemiInf});
@@ -90,10 +100,10 @@ function homogeneisation_2D(freq, period, suffix)
 
   %% Parameters for the interface problem
   %  //////////////////////////////////////
-  numCellsSemiInfinite_pos = 5;
-  numCellsSemiInfinite_neg = 5;
-  numCellsInfinite = 5;
-  numFloquetPoints = 100;
+  numCellsSemiInfinite_pos = 6;
+  numCellsSemiInfinite_neg = 6;
+  numCellsInfinite = 6;
+  numFloquetPoints = 50;
 
   %%
   % Compute guide solution
@@ -101,17 +111,17 @@ function homogeneisation_2D(freq, period, suffix)
                           volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
                           volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
                           G, numCellsInfinite, numFloquetPoints, opts);
-  %
-  %
-  Ueff = PeriodicSpaceJumpBVP(coSemiInf, coInf, period,...
-                          volBilinearIntg_pos_eff, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
-                          volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
-                          G, numCellsInfinite, numFloquetPoints, opts);
+  % %
+  % %
+  % Ueff = PeriodicSpaceJumpBVP(coSemiInf, coInf, period,...
+  %                         volBilinearIntg_pos_eff, mesh_pos, BCstruct_pos, numCellsSemiInfinite_pos,...
+  %                         volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCellsSemiInfinite_neg,...
+  %                         G, numCellsInfinite, numFloquetPoints, opts);
 
-  %%
-  % Error
-  E.positive = U.positive - Ueff.positive;
-  E.negative = U.negative - Ueff.negative;
+  % %%
+  % % Error
+  % E.positive = U.positive - Ueff.positive;
+  % E.negative = U.negative - Ueff.negative;
 
   if (nargin >= 3)
     save(['output_', suffix, '.mat']);
@@ -140,10 +150,10 @@ function homogeneisation_2D(freq, period, suffix)
       X = mesh_pos.points(:, 1) + (coSemiInf == 1) * (orientation * (idS - 1)) * period + (coInf == 1) * (idI - numCellsInfinite - 1) * period;
       Y = mesh_pos.points(:, 2) + (coSemiInf == 2) * (orientation * (idS - 1)) * period + (coInf == 2) * (idI - numCellsInfinite - 1) * period;
 
-      trisurf(mesh_pos.triangles, X, Y, real(E.positive(:, idcell)));
+      trisurf(mesh_pos.triangles, X, Y, real(U.positive(:, idcell)));
       hold on;
       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-      % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
     end
   end
 
@@ -162,18 +172,18 @@ function homogeneisation_2D(freq, period, suffix)
       X = mesh_neg.points(:, 1) + (coSemiInf == 1) * (orientation * (idS - 1)) * period + (coInf == 1) * (idI - numCellsInfinite - 1) * period;
       Y = mesh_neg.points(:, 2) + (coSemiInf == 2) * (orientation * (idS - 1)) * period + (coInf == 2) * (idI - numCellsInfinite - 1) * period;
 
-      trisurf(mesh_neg.triangles, X, Y, real(E.negative(:, idcell)));
+      trisurf(mesh_neg.triangles, X, Y, real(U.negative(:, idcell)));
       hold on;
       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-      % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
     end
   end
 
 
-  BBS = [-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1];
+  BBS = [-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos];
   BBI = [-numCellsInfinite, numCellsInfinite];
 
   xlim((coInf == 1) * BBI + (coSemiInf == 1) * BBS);
   ylim((coInf == 2) * BBI + (coSemiInf == 2) * BBS);
-  caxis([-1e-3, 1e-3]);
+  % caxis([-1e-3, 1e-3]);
 end

@@ -18,7 +18,7 @@ structmesh = 0;
 basis_functions = 'Fourier';
 
 u = pdes.PDEObject; v = dual(u);
-volBilinearIntg = @(muco, rhoco) (muco * grad(u)) * grad(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
+volBilinearIntg = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 % volBilinearIntg = @(muco, rhoco) (muco * gradDir(u, opts.cutvec)) * gradDir(v, opts.cutvec) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 
 N = 32;
@@ -68,7 +68,7 @@ jumpLinearIntg = G * id(v);
 U = PeriodicGuideJumpBVP(coInf,...
                      volBilinearIntg_pos, mesh_pos, BCstruct_pos, numCells_pos,...
                      volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
-                     jumpLinearIntg, opts);
+                     G, opts);
 
 %% Plot U
 figure;

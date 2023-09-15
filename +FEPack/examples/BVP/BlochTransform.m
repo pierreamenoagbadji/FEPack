@@ -101,7 +101,7 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc, BlochType
   k_dot_x = x(:, directions) * k.';        % Nx-by-Nk
   exp_k_dot_x = exp(-1i * k_dot_x);        % Nx-by-Nk
   
-  TFBfun = prod(Lcell/sqrt(2*pi)) * exp_k_dot_x .* (F_x_plus_NL * exp_k_dot_NL);
+  TFBfun = prod(sqrt(Lcell/(2*pi))) * exp_k_dot_x .* (F_x_plus_NL * exp_k_dot_NL);
   
   % Switch to the quasiperiodic Floquet-Bloch transform if needed
   % /////////////////////////////////////////////////////////////

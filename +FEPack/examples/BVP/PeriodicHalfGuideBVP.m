@@ -1,4 +1,4 @@
- function [U, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, semiInfiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
+ function [U, E0, E1, R, D, newBCstruct, Lambda] = PeriodicHalfGuideBVP(mesh, orientation, semiInfiniteDirection, volBilinearIntg, BCstruct, numCells, opts)
   % PeriodicHalfGuideBVP(mesh, orientation, semiInfiniteDirection, volBilinearIntg, BCstruct, numCells, opts) solves
   %
   %       Find u in V such that tau(u) = g, and
@@ -46,6 +46,7 @@
   %         * numCells, Number of cells on which the solution is computed.
   %
   %         * opts, structure with fields
+  %           -> computeSol, if set to true, allows to compute the solution
   %           -> solBasis, if set to true, allows to compute the solution
   %              for any of the basis functions;
   %           -> omega, the frequency (needed to compute the flux);
@@ -77,6 +78,10 @@
     % The component along which the guide is infinite should be between
     % 1 and the mesh dimension
     error('Le demi-guide ne peut pas être infini dans la direction %d.', semiInfiniteDirection);
+  end
+
+  if ~isfield(opts, 'computeSol')
+    opts.computeSol = true;
   end
 
   if ~isfield(opts, 'solBasis')
@@ -166,11 +171,35 @@
     ecs.b = [B0, B1];
 
     % Solve the local cell problems
-    Ecell = CellBVP(mesh, AA, 0.0, ecs);
+    AA0 =  ecs.P * AA * ecs.P';
+    LL0 = -ecs.P * AA * ecs.b;
+    % tic;
+    % UU0 = AA0 \ LL0;
+    % toc;
+
+    % UU0 = AA0(perm, perm) \ LL0(perm, :); % VERY VERY BAD
+    tic;
+    perm = dissect(AA0);
+    invperm(perm) = 1:numel(perm);
+
+    [LLmat, UUmat, luperm] = lu(AA0(perm, perm), 'vector');
+    UU0 = linsolve(full(LLmat), full(LL0(perm(luperm), :)), struct('LT', true));
+    UU0 = linsolve(full(UUmat), UU0, struct('UT', true));
+    UU0 = UU0(invperm, :);
+    toc;
+
+    % UU0 = zeros(size(LL0));
+    % for idI = 1:size(LL0, 2)
+    %   UU0(:, idI) = gmres(AA0, LL0(:, idI));
+    % end
+    % norm(AA0 * UU0 - LL0, 'fro')
+    
+    Ecell = ecs.b + ecs.P' * UU0;%(AA0 \ LL0);
+    % Ecell = CellBVP(mesh, AA, 0.0, ecs);
 
     % Deduce the local cell solutions.
     E0 = Ecell(:, 1:Nb);
-    E1 = Ecell; E1(:, 1:Nb) = [];
+    E1 = Ecell(:, 1+Nb:end);
 
     if (opts.verbose)
       fprintf('2. Traces et traces normales\n');
@@ -184,10 +213,16 @@
     E11 = speye(Nb);
 
     % Fkl is the normal trace of Ek on Sigmal. It is evaluated weakly
-    F00 = spB0.invmassmat * (E0' * AA * E0);
-    F10 = spB0.invmassmat * (E0' * AA * E1);
-    F01 = spB0.invmassmat * (E1' * AA * E0);
-    F11 = spB0.invmassmat * (E1' * AA * E1);
+    AAE0 = AA * E0;
+    AAE1 = AA * E1;
+
+    MME0 = spB0.invmassmat * E0';
+    MME1 = spB0.invmassmat * E1';
+
+    F00 = MME0 * AAE0; % spB0.invmassmat * (E0' * AA * E0);
+    F10 = MME0 * AAE1; % spB0.invmassmat * (E0' * AA * E1);
+    F01 = MME1 * AAE0; % spB0.invmassmat * (E1' * AA * E0);
+    F11 = MME1 * AAE1; % spB0.invmassmat * (E1' * AA * E1);
 
   else
 
@@ -213,11 +248,16 @@
     AA = AA + SS0 + SS1;
 
     % Surfacic right-hand sides
-    BB = [FEPack.pdes.Form.intg(Sigma0, u*v) * B0,...
+    LL = [FEPack.pdes.Form.intg(Sigma0, u*v) * B0,...
           FEPack.pdes.Form.intg(Sigma1, u*v) * B1];
 
     % Solve the local cell problems
-    Ecell = CellBVP(mesh, AA, BB, ecs);
+    ecs.applyEcs;
+    AA0 = ecs.P * AA * ecs.P';
+    LL0 = ecs.P * LL;
+
+    Ecell = ecs.P' * (AA0 \ LL0);
+    % Ecell = CellBVP(mesh, AA, LL, ecs);
 
     % Deduce the local cell solutions.
     E0 = Ecell(:, 1:Nb);
@@ -273,40 +313,43 @@
     fprintf('4. Construction de la solution\n');
   end
 
-  if (opts.solBasis)
+  if (opts.computeSol)
+    if (opts.solBasis)
 
-    % Compute the solution for any basis function
-    U = cell(numCells, 1);
-    R0 = eye(Nb);
-    R1 = D;
+      % Compute the solution for any basis function
+      U = cell(numCells, 1);
+      R0 = eye(Nb);
+      R1 = D;
 
-    for idCell = 0:numCells-1
-      % Compute the solution in the current cell
-      U{idCell + 1} = E0 * R0 + E1 * R1;
+      for idCell = 0:numCells-1
+        % Compute the solution in the current cell
+        U{idCell + 1} = E0 * R0 + E1 * R1;
 
-      % Update the coefficients
-      R0 = R * R0;
-      R1 = D * R0;
-    end
+        % Update the coefficients
+        R0 = R * R0;
+        R1 = D * R0;
+      end
 
-  else
+    else
 
-    % Compute the solution for one boundary data
-    U = zeros(N, numCells);
-    R0Phi = spB0.FE_to_spectral * BCstruct.phi(mesh.points(Sigma0.IdPoints, :));
-    R1Phi = D * R0Phi;
-
-    for idCell = 0:numCells-1
-      % Compute the solution in the current cell
-      U(:, idCell + 1) = E0 * R0Phi + E1 * R1Phi;
-
-      % Update the coefficients
-      R0Phi = R * R0Phi;
+      % Compute the solution for one boundary data
+      U = zeros(N, numCells);
+      R0Phi = spB0.FE_to_spectral * BCstruct.phi(mesh.points(Sigma0.IdPoints, :));
       R1Phi = D * R0Phi;
+
+      for idCell = 0:numCells-1
+        % Compute the solution in the current cell
+        U(:, idCell + 1) = E0 * R0Phi + E1 * R1Phi;
+
+        % Update the coefficients
+        R0Phi = R * R0Phi;
+        R1Phi = D * R0Phi;
+      end
+
     end
-
+  else
+    U = [];
   end
-
   %% % *********************************************** %
   %  % The transmission coefficient and the derivative %
   %  % *********************************************** %

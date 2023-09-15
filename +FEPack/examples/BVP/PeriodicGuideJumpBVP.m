@@ -7,15 +7,15 @@ function U = PeriodicGuideJumpBVP(semiInfiniteDirection,...
   % warning('Uniquement Dirichlet (saut Neumann)');
 
   % Preliminary set ups
-  opts.solBasis = true;
+  opts.computeSol = false;
 
   % Solve the problem in the positive half-guide
   % ////////////////////////////////////////////
-  [Upos, BCstruct_pos, Lambda_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, semiInfiniteDirection, volBilinearIntg_pos, BCstruct_pos, numCells_pos, opts);
+  [~, E0pos, E1pos, Rpos, Dpos, BCstruct_pos, Lambda_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, semiInfiniteDirection, volBilinearIntg_pos, BCstruct_pos, numCells_pos, opts);
 
   % Solve the problem in the negative half-guide
   % ////////////////////////////////////////////
-  [Uneg, BCstruct_neg, Lambda_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, semiInfiniteDirection, volBilinearIntg_neg, BCstruct_neg, numCells_neg, opts);
+  [~, E0neg, E1neg, Rneg, Dneg, BCstruct_neg, Lambda_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, semiInfiniteDirection, volBilinearIntg_neg, BCstruct_neg, numCells_neg, opts); %#ok
 
   % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % N = 32;
@@ -37,29 +37,54 @@ function U = PeriodicGuideJumpBVP(semiInfiniteDirection,...
   % //////////////////////////////////
   Sigma0pos = mesh_pos.domains{2*semiInfiniteDirection};
   % Sigma0neg = mesh_neg.domains{2*semiInfiniteDirection};
-  
-
-  % GG = FEPack.pdes.Form.intg(Sigma0pos, jumpData);
   GG = BCstruct_pos.spB0.FE_to_spectral * jumpData(mesh_pos.points(Sigma0pos.IdPoints, :));
-
-  solphi = (Lambda_pos + Lambda_neg) \ GG;
+  
+  % -------------------------------------------------------------------- %
+  % The minus sign comes from the definition of the Lambda when they are %
+  % the DtN operators (see PeriodicHalfGuideBVP.m)                       %
+  % -------------------------------------------------------------------- %
+  solphi = - (Lambda_pos + Lambda_neg) \ GG;  % see comment above        %
+  % solphi = jumpData(mesh_pos.points(Sigma0pos.IdPoints, :));
+  % solphi(end) = [];
+  % -------------------------------------------------------------------- %
   % cond(Lambda_neg + Lambda_pos)
   
   % Construct the solution in the whole domain
   % //////////////////////////////////////////
   % Positive side
   U.positive = zeros(mesh_pos.numPoints, numCells_pos);
+  R0Phi = solphi;
+  R1Phi = Dpos * R0Phi;
 
-  for idCell = 1:numCells_pos
-    U.positive(:, idCell) = Upos{idCell} * solphi;
+  for idCell = 0:numCells_pos-1
+    % Compute the solution in the current cell
+    U.positive(:, idCell + 1) = E0pos * R0Phi + E1pos * R1Phi;
+
+    % Update the coefficients
+    R0Phi = Rpos * R0Phi;
+    R1Phi = Dpos * R0Phi;
   end
+
+  % for idCell = 1:numCells_pos
+  %   U.positive(:, idCell) = Upos{idCell} * solphi;
+  % end
 
   % Negative side
   U.negative = zeros(mesh_neg.numPoints, numCells_neg);
+  R0Phi = solphi;
+  R1Phi = Dneg * R0Phi;
 
-  for idCell = 1:numCells_neg
-    U.negative(:, idCell) = Uneg{idCell} * solphi;
+  for idCell = 0:numCells_neg-1
+    % Compute the solution in the current cell
+    U.negative(:, idCell + 1) = E0neg * R0Phi + E1neg * R1Phi;
+
+    % Update the coefficients
+    R0Phi = Rneg * R0Phi;
+    R1Phi = Dneg * R0Phi;
   end
+  % for idCell = 1:numCells_neg
+  %   U.negative(:, idCell) = Uneg{idCell} * solphi;
+  % end
 
   % % Trace and normal trace of U
   % if (BCstruct_pos.spB0.is_interpolated)

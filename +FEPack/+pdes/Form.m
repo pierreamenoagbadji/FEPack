@@ -380,7 +380,6 @@ classdef Form < FEPack.FEPackObject
 
       if ((norm(alpha_u, inf) < eps) || (norm(alpha_v, inf) < eps))
          
-        1
         return
       
       end

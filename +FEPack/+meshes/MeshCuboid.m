@@ -132,6 +132,16 @@ classdef MeshCuboid < FEPack.meshes.Mesh
 
     end
 
+    % ================================= %
+    % Extract mesh associated to domain %
+    % ================================= %
+    function meshDom = restrictToDomain(mesh, dom)
+
+      meshDom.triangles = changem(dom.elements, 1:dom.numPoints, dom.IdPoints);
+      meshDom.points = mesh.points(dom.IdPoints, :);
+
+    end
+
   end
 
 end

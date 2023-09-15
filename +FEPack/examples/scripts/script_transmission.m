@@ -1,110 +1,123 @@
 clear; clc;
 %%
 import FEPack.*
+profile OFF
 profile ON
 
 %% Problem-related variables
-opts.omega = 5 + 0.25i;
+omega = 8 + 0.25i;
+opts.omega = omega;
 period = 1;
-vecper = [-1, 1]; % [-sqrt(2), 1];
-cutvec = [1/vecper(2); -vecper(1)/vecper(2)];
+opts.verbose = 0;
+problem_setting = 'B'; % 'A' or 'B'
+
+if strcmpi(problem_setting, 'A')
+
+  % 2D coefficients
+  period_posFun = 1;
+  period_negFun = 0.5 * sqrt(2);
+
+  mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
+  rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
+  mu2Dneg  = @(x) 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
+  rho2Dneg = @(x) 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
+
+  % Cut vector
+  period_pos = period_posFun;
+  period_neg = period_negFun;
+
+  cutvec = [period_pos; period_neg];
+
+  % 3D coefficients
+  mu3Dpos = @(x) mu2Dpos([x(:, 1), period_pos * x(:, 2)]);
+  rho3Dpos = @(x) rho2Dpos([x(:, 1), period_pos * x(:, 2)]);
+  mu3Dneg = @(x) mu2Dneg([x(:, 1), period_neg * x(:, 3)]);
+  rho3Dneg = @(x) rho2Dneg([x(:, 1), period_neg * x(:, 3)]);
+  
+else
+
+  % 2D coefficients
+  vecperFun = [-0.5*sqrt(2), 1]; % [-sqrt(2), 1];
+  
+  mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2]);
+  rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
+  mu2Dneg  = @(x) ones(size(x, 1), 1);
+  rho2Dneg = @(x) ones(size(x, 1), 1);
+
+  % Cut vector
+  vecper = vecperFun;
+  cutvec = [1/vecper(2); -vecper(1)/vecper(2)];
+  
+  % 3D coefficients
+  fun3D = @(fun2D, x) fun2D([x(:, 1) + x(:, 3) + x(:, 2) * vecper(1), x(:, 2) * vecper(2)]);
+  mu3Dpos = @(x) fun3D(mu2Dpos, x);
+  mu3Dneg = @(x) fun3D(mu2Dneg, x);
+  rho3Dpos = @(x) fun3D(rho2Dpos, x);
+  rho3Dneg = @(x) fun3D(rho2Dneg, x);
+
+end
+
+% Cut matrix and cut slope
 opts.cutmat = [[1; 0; 0], [0; cutvec]];
 cutslope = cutvec(2) / cutvec(1);
+
+% Jump data
+% alpha_G = 3;
+% eps_G = 1e-8;
+% supp_G = -log(eps_G) / alpha_G;
+% G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
+G = @(x) FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
+G3D = @(x) G([zeros(size(x, 1), 1), x(:, 2)/cutvec(1), zeros(size(x, 1), 1)]);
+
+% (semi-)infinite directions and numbers of cells
 semiInfiniteDirection = 1;
 infiniteDirection = 2;
-numCellsSemiInfinite_pos = 7;
-numCellsSemiInfinite_neg = 7;
-numCellsInfinite = 6;
-numFloquetPoints = 50;
-opts.verbose = 0;
+numCellsSemiInfinite_pos = 6;
+numCellsSemiInfinite_neg = 6;
+numCellsInfinite = 5;
+numFloquetPoints = 64;
 
 %% Mesh
 pregenerate_mesh = 1;
+struct_mesh = 1;
 numNodes2D = 10;
 numNodes3D = 10;
 
 if pregenerate_mesh
 
+  if (struct_mesh)
+    mesh_prefix = 'struct';
+  else
+    mesh_prefix = 'unstruct';
+  end
+
   % Pick mesh from saved file
-  m = load(['pregenMeshes/2D/unstruct_mesh_2D_', int2str(numNodes2D), '_positive.mat']);
+  m = load(['pregenMeshes/2D/', mesh_prefix, '_mesh_2D_', int2str(numNodes2D), '_positive.mat']);
   mesh2Dpos = m.mesh;
 
-  m = load(['pregenMeshes/3D/unstruct_mesh_3D_', int2str(numNodes3D), '_positive.mat']);
+  m = load(['pregenMeshes/3D/', mesh_prefix, '_mesh_3D_', int2str(numNodes3D), '_positive.mat']);
   mesh3Dpos = m.mesh;
 
-  m = load(['pregenMeshes/2D/unstruct_mesh_2D_', int2str(numNodes2D), '_negative_X.mat']);
+  m = load(['pregenMeshes/2D/', mesh_prefix, '_mesh_2D_', int2str(numNodes2D), '_negative_X.mat']);
   mesh2Dneg = m.mesh;
 
-  m = load(['pregenMeshes/3D/unstruct_mesh_3D_', int2str(numNodes3D), '_negative_X.mat']);
+  m = load(['pregenMeshes/3D/', mesh_prefix, '_mesh_3D_', int2str(numNodes3D), '_negative_X.mat']);
   mesh3Dneg = m.mesh;
 
 else
 
-  structmesh = 0; %#ok
-  mesh2Dpos = meshes.MeshRectangle(structmesh, [0 1], [0 1], numNodes2D, numNodes2D);
-  mesh3Dpos = meshes.MeshCuboid(structmesh, [0 1], [0 1], [0 1], numNodes3D, numNodes3D, numNodes3D);
+  mesh2Dpos = meshes.MeshRectangle(struct_mesh, [0 1], [0 1], numNodes2D, numNodes2D);
+  mesh3Dpos = meshes.MeshCuboid(struct_mesh, [0 1], [0 1], [0 1], numNodes3D, numNodes3D, numNodes3D);
 
-  mesh2Dneg = meshes.MeshRectangle(structmesh, [0 -1], [0 1], numNodes2D, numNodes2D);
-  mesh3Dneg = meshes.MeshCuboid(structmesh, [0 -1], [0 1], [0 1], numNodes3D, numNodes3D, numNodes3D);
+  mesh2Dneg = meshes.MeshRectangle(struct_mesh, [0 -1], [0 1], numNodes2D, numNodes2D);
+  mesh3Dneg = meshes.MeshCuboid(struct_mesh, [0 -1], [0 1], [0 1], numNodes3D, numNodes3D, numNodes3D);
 
 end
-
-%% Coefficients
-% Cartesian coefficients
-type_mu_pos = 2;  % 1: constant; 2: periodic; 
-type_mu_neg = 1;  % 1: constant; 2: periodic; 
-type_rho_pos = 2; % 1: constant; 2: periodic;  
-type_rho_neg = 1; % 1: constant; 2: periodic;  
-
-switch (type_mu_pos)
-case 1
-  mu2DposCart = @(x) ones(size(x, 1), 1);
-case 2
-  mu2DposCart = @(x) 1 + 0.25*cos(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
-end
-
-switch (type_mu_neg)
-case 1
-  mu2DnegCart = @(x) ones(size(x, 1), 1);
-case 2
-  mu2DnegCart = @(x) 1 + 0.5*sin(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
-end
-
-switch (type_rho_pos)
-case 1
-  rho2DposCart = @(x) ones(size(x, 1), 1);
-case 2
-  rho2DposCart = @(x) 2 + 0.5*cos(2*pi*x(:, 1)).*sin(2*pi*x(:, 2));
-end
-
-switch (type_rho_neg)
-case 1
-  rho2DnegCart = @(x) ones(size(x, 1), 1);
-case 2
-  rho2DnegCart = @(x) 1 + 0.25*sin(2*pi*x(:, 1)) + 0.25*cos(2*pi*x(:, 2));
-end
-
-% 2D coefficients
-mu2Dpos  = @(x) mu2DposCart( [x(:, 1) + cutvec(2)*x(:, 2), cutvec(1)*x(:, 2), zeros(size(x, 1), 1)]);
-rho2Dpos = @(x) rho2DposCart([x(:, 1) + cutvec(2)*x(:, 2), cutvec(1)*x(:, 2), zeros(size(x, 1), 1)]);
-mu2Dneg  = @(x) mu2DnegCart( [x(:, 1) + cutvec(2)*x(:, 2), cutvec(1)*x(:, 2), zeros(size(x, 1), 1)]);
-rho2Dneg = @(x) rho2DnegCart([x(:, 1) + cutvec(2)*x(:, 2), cutvec(1)*x(:, 2), zeros(size(x, 1), 1)]);
-
-% 3D coefficients
-fun3D = @(fun2Dcart, x) fun2Dcart([x(:, 1) + x(:, 2), x(:, 3), zeros(size(x, 1), 1)]);
-mu3Dpos = @(x) fun3D(mu2DposCart, x);
-mu3Dneg = @(x) fun3D(mu2Dneg, x);
-rho3Dpos = @(x) fun3D(rho2DposCart, x);
-rho3Dneg = @(x) fun3D(rho2Dneg, x);
-
-% Jump data
-G = @(x) FEPack.tools.cutoff(x(:, 2), -0.3, 0.3);
-G3D = @(x) G([zeros(size(x, 1), 1), x(:, 1)/cutvec(1), zeros(size(x, 1), 1)]);
 
 %% Plot coefficients?
 plot_coefficients = false;
 if (plot_coefficients)
-  set(groot,'defaultAxesTickLabelInterpreter','latex'); %#ok
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
   set(groot,'defaulttextinterpreter','latex');
   set(groot,'defaultLegendInterpreter','latex');
 
@@ -130,9 +143,19 @@ if (plot_coefficients)
     end
   end
 
+  figure(1);
+  xlim([-numCellsSemiInfinite_pos, numCellsSemiInfinite_pos]);
+  ylim([-numCellsInfinite, numCellsInfinite]);
+
+  figure(2);
+  xlim([-numCellsSemiInfinite_pos, numCellsSemiInfinite_pos]);
+  ylim([-numCellsInfinite, numCellsInfinite]);
+
   figure(3);
   x = [zeros(256, 1), linspace(-2, 2, 256)', zeros(256, 1)];
   plot(x(:, 2), G(x));
+  
+  error;
 end
 
 %% Bilinear and linear forms
@@ -141,7 +164,7 @@ gradu_gradv = @(muco) (muco * (opts.cutmat' * grad3(u))) * (opts.cutmat' * grad3
 gradu_vec1v = @(muco) (muco * (opts.cutmat' * grad3(u))) * (opts.cutmat' * [0; 1; 0] * v);
 vec1u_gradv = @(muco) (muco * (opts.cutmat' * [0; 1; 0] * u)) * (opts.cutmat' * grad3(v));
 vec1u_vec1v = @(muco) (muco * (opts.cutmat' * [0; 1; 0] * u)) * (opts.cutmat' * [0; 1; 0] * v);
-u_v = @(rhoco) - (opts.omega^2) * ((rhoco*u)*v);
+u_v = @(rhoco) ((rhoco*u)*v);
 
 %% Compute FE elementary matrices
 % Positive side
@@ -170,7 +193,7 @@ else
 end
 BCstruct_pos.BCdu = 0.0;
 BCstruct_pos.BCu = 1.0;
-BCstruct_pos.representation = 'weak evaluation';
+BCstruct_pos.representation = 'projection';
 
 if strcmpi(basis_functions, 'Lagrange')
   BCstruct_neg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh3Dneg.domain('xmin'));
@@ -182,18 +205,20 @@ else
 end
 BCstruct_neg.BCdu = 0.0;
 BCstruct_neg.BCu = 1.0;
-BCstruct_neg.representation = 'weak evaluation';
+BCstruct_neg.representation = 'projection';
 
 %% Floquet-Bloch transform of the solution
 FloquetPoints = linspace(-pi/period, pi/period, numFloquetPoints);
 TFBU = cell(numFloquetPoints, 1);
 
 for idFB = 1:numFloquetPoints
+  fprintf('%d sur %d\n', idFB, numFloquetPoints);
+  
   FloquetVar = FloquetPoints(idFB);
 
   % The FE matrix is a linear combination of the elementary pieces
-  AApos = mat_gradu_gradv_pos + 1i * FloquetVar * mat_vec1u_gradv_pos - 1i * FloquetVar * mat_gradu_vec1v_pos + FloquetVar * FloquetVar * mat_vec1u_vec1v_pos + mat_u_v_pos;
-  AAneg = mat_gradu_gradv_neg + 1i * FloquetVar * mat_vec1u_gradv_neg - 1i * FloquetVar * mat_gradu_vec1v_neg + FloquetVar * FloquetVar * mat_vec1u_vec1v_neg + mat_u_v_neg;
+  AApos = mat_gradu_gradv_pos + 1i * FloquetVar * mat_vec1u_gradv_pos - 1i * FloquetVar * mat_gradu_vec1v_pos + FloquetVar * FloquetVar * mat_vec1u_vec1v_pos - (omega^2) * mat_u_v_pos;
+  AAneg = mat_gradu_gradv_neg + 1i * FloquetVar * mat_vec1u_gradv_neg - 1i * FloquetVar * mat_gradu_vec1v_neg + FloquetVar * FloquetVar * mat_vec1u_vec1v_neg - (omega^2) * mat_u_v_neg;
 
   % The Floquet-Bloch transform of the boundary data
   jumpData_FB = @(x) BlochTransform(x, FloquetVar, G3D, infiniteDirection);
@@ -294,6 +319,7 @@ for idI = 1:2*numCellsInfinite
 end
 
 profile viewer
+profile OFF
 
 %% Plot U
 figure;%(1);
@@ -331,125 +357,5 @@ for idS = 1:numCellsSemiInfinite_neg
   end
 end
 
-xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
+xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
 ylim([-numCellsInfinite, numCellsInfinite]);
-%caxis([-0.02, 0.02]);
-
-%%
-
-xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_neg - 1]);
-ylim([-numCellsInfinite, numCellsInfinite]);
-%caxis([-0.025, 0.025]);
-
-
-% %% Compare U in the rational case
-% if (compareU)
-%   %
-%   tic;
-%   volBilinearIntg2D = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
-% 
-%   BCstruct2Dpos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmin'));
-%   BCstruct2Dpos.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dpos.domain('xmax'));
-%   BCstruct2Dpos.BCdu = BCstruct_pos.BCdu;
-%   BCstruct2Dpos.BCu = BCstruct_pos.BCu;
-%   volBilinearIntg2Dpos = volBilinearIntg2D(mu2Dpos, rho2Dpos);
-% 
-%   %
-%   BCstruct2Dneg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmin'));
-%   BCstruct2Dneg.spB1 = FEPack.spaces.PeriodicLagrangeBasis(mesh2Dneg.domain('xmax'));
-%   BCstruct2Dneg.BCdu = BCstruct_neg.BCdu;
-%   BCstruct2Dneg.BCu = BCstruct_neg.BCu;
-%   volBilinearIntg2Dneg = volBilinearIntg2D(mu2Dneg, rho2Dneg);
-% 
-%   %
-%   % jumpLinearIntg2D = G * id(v);
-%   
-%   %
-%   Ur = PeriodicSpaceJumpBVP(1, 2, 1, ...
-%                         volBilinearIntg2Dpos, mesh2Dpos, BCstruct2Dpos, numCellsSemiInfinite_pos,...
-%                         volBilinearIntg2Dneg, mesh2Dneg, BCstruct2Dneg, numCellsSemiInfinite_neg,...
-%                         G, numCellsInfinite, numFloquetPoints, opts);
-%   toc;
-%   %
-%   E.positive = U2D.positive - Ur.positive;
-%   E.negative = U2D.negative - Ur.negative;
-% 
-%   %%
-%   % figure;
-%   % for idS = 1:numCellsSemiInfinite_pos
-%   %   for idI = 1:2*numCellsInfinite
-%   %     Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
-%   %     X = mesh2Dpos.points(:, 1) + (idS - 1);
-%   %     Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
-% 
-%   %     trisurf(mesh2Dpos.triangles, X, Y, real(Ur.positive(:, Icell)));
-%   %     hold on;
-%   %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-%   %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-%   %     % caxis([-0.02, 0.02]);
-%   %     % colormap jet
-%   %   end
-%   % end
-%   % %
-%   % for idS = 1:numCellsSemiInfinite_neg
-%   %   for idI = 1:2*numCellsInfinite
-%   %     Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
-%   %     X = mesh2Dneg.points(:, 1) - (idS - 1);
-%   %     Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
-%   %     trisurf(mesh2Dneg.triangles, X, Y, real(Ur.negative(:, Icell)));
-%   %     hold on;
-%   %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-%   %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-%   %     % colormap jet
-%   %     % caxis([-0.02, 0.02]);
-%   %   end
-%   % end
-%   
-%   % %
-%   % xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
-%   % ylim([-numCellsInfinite, numCellsInfinite]);
-%   % caxis([-0.025, 0.025]);
-% 
-% end
-% 
-% %%
-% % figure;
-% % U2Dcst = load('U2D.mat');
-% % E.positive = U2D.positive - U2Dcst.U2D.positive;
-% % E.negative = U2D.negative - U2Dcst.U2D.negative;
-% % for idS = 1:numCellsSemiInfinite_pos
-% %   for idI = 1:2*numCellsInfinite
-% %     Icell = sub2ind([numCellsSemiInfinite_pos, 2*numCellsInfinite], idS, idI);
-% %     X = mesh2Dpos.points(:, 1) + (idS - 1);
-% %     Y = mesh2Dpos.points(:, 2) + (idI - numCellsInfinite - 1);
-% 
-% %     trisurf(mesh2Dpos.triangles, X, Y, real(E.positive(:, Icell)));
-% %     hold on;
-% %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-% %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-% %     % caxis([-0.02, 0.02]);
-% %     % colormap jet
-% %   end
-% % end
-% % %
-% % for idS = 1:numCellsSemiInfinite_neg
-% %   for idI = 1:2*numCellsInfinite
-% %     Icell = sub2ind([numCellsSemiInfinite_neg, 2*numCellsInfinite], idS, idI);
-% %     X = mesh2Dneg.points(:, 1) - (idS - 1);
-% %     Y = mesh2Dneg.points(:, 2) + (idI - numCellsInfinite - 1);
-% %     trisurf(mesh2Dneg.triangles, X, Y, real(E.negative(:, Icell)));
-% %     hold on;
-% %     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-% %     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-% %     % colormap jet
-% %     % caxis([-0.02, 0.02]);
-% %   end
-% % end
-% 
-% % %%
-% % xlim([-numCellsSemiInfinite_neg + 1, numCellsSemiInfinite_pos - 1]);
-% % ylim([-numCellsInfinite, numCellsInfinite]);
-% % caxis([-0.0025, 0.00025]);
-% 
-% 
-% save output_periodic.mat

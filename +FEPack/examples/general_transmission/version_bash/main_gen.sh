@@ -27,16 +27,16 @@ while getopts ":r" opt; do
 done
 
 # Parameters
-numFloquetPoints=128;  # Total number of Floquet points 
-sizeFloquetClust=32;   # Number of Floquet points per cluster
+numFloquetPoints=64;  # Total number of Floquet points 
+sizeFloquetClust=16;   # Number of Floquet points per cluster
 (( numClusters=numFloquetPoints/sizeFloquetClust )); # Number of Clusters
-numbersNodes=(5 10);  # List of numbers of nodes
+numbersNodes=(10);  # List of numbers of nodes
 
 # Initialization (parallel wrt numNodes)
 for numNodes in "${numbersNodes[@]}"
 do
   # Generate the meshes (if not done yet) and compute the FE matrices
-  matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); init_script_transmission($numFloquetPoints, $numNodes, '$cheminDonnees'); quit;" &
+  matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); init_script_transmission_gen($numFloquetPoints, $numNodes, '$cheminDonnees'); quit;" &
 done
 wait
 
@@ -49,13 +49,17 @@ do
     echo -e "${RED}/////////////////  Cluster $idCluster  /////////////////${NC}"
 
     # Solve the waveguide problems associated to the current cluster
-    matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); solve_TFB_waveguide($idCluster*$sizeFloquetClust+1, ($idCluster+1)*$sizeFloquetClust, $numNodes, '$cheminDonnees'); quit;" &
+    matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); solve_TFB_waveguide_gen($idCluster*$sizeFloquetClust+1, ($idCluster+1)*$sizeFloquetClust, $numNodes, '$cheminDonnees'); quit;" &
   done
   wait # for all the waveguide problems to be solved
   
   # Conclusion
-  matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); numNodes = $numNodes; cheminDonnees = '$cheminDonnees'; end_script_transmission; quit;"
+  matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); numNodes = $numNodes; cheminDonnees = '$cheminDonnees'; end_script_transmission_gen; quit;"
 
   # Remove outputs
-  rm $chemin/outputs/TFBU_*
+  rm $cheminDonnees/sol_pos_data_*
+  rm $cheminDonnees/TFBlambdaPos_*
+  rm $cheminDonnees/sol_neg_data_*
+  rm $cheminDonnees/TFBlambdaNeg_*
+  
 done

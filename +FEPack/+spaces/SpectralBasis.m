@@ -231,6 +231,35 @@ classdef SpectralBasis < FEPack.FEPackObject
 
     end
 
+    function res = evaluateBasisFunctions(sp, P)
+
+      if (sp.is_interpolated)
+
+        % The basis functions are piecewise linear functions
+        % defined by their values at the mesh nodes
+        % We proceed by interpolation
+        structLoc = sp.domain.locateInDomain(P);
+        elts = sp.domain.elements(structLoc.elements, :);
+        coos = structLoc.barycoos;
+
+        res = zeros(size(P, 1), sp.numBasis);
+
+        for idI = 1:size(P, 1)
+          for idJ = 1:size(coos, 2)
+            res(idI, :) = res(idI, :) + coos(idI, idJ) * sp.phis(elts(idI, idJ), :);
+          end
+        end
+
+      else
+
+        % The basis functions are defined by an explicit expression
+        % of the form @(P, n) phis(P, n)
+        res = sp.phis(P, 1:sp.numBasis);
+        
+      end
+
+    end
+
   end
 
 end
