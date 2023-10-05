@@ -1,10 +1,11 @@
-function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, BCstruct, opts)
+function quasi2DHalfGuideDirichlet_par(orientation, meshXY, meshLineZ, mu3D, rho3D, BCstruct, opts)
 
   %% Initialization
   cutslope = opts.cutvec(2) / opts.cutvec(1);
   DeltaS = meshLineZ.points(2, 1) - meshLineZ.points(1, 1);
   N_s = meshLineZ.numPoints;
   N_XY = meshXY.numPoints;
+  nomdossier = opts.nomdossier;
 
   % Basis functions on faces 
   spBX = BCstruct.spBX; NbX = spBX.numBasis; % X = cst
@@ -25,23 +26,32 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
   edge1y = meshXY.domain('ymax'); N1y = edge1y.numPoints;
 
   %% FE matrices
-  for idS = 1:N_s-1
-    fprintf('Calcul des matrices éléments finis.\n');
-    sVar = meshLineZ.points(idS, 1);
-    mu2Ds  = @(x)  mu3D([x(:, 1), opts.cutvec(1)*x(:, 2), opts.cutvec(2)*x(:, 2) + sVar]);
-    rho2Ds = @(x) rho3D([x(:, 1), opts.cutvec(1)*x(:, 2), opts.cutvec(2)*x(:, 2) + sVar]);
+  sVec = meshLineZ.points;
+  cellXY = meshXY.domain('volumic');
+  cutvec = opts.cutvec;
+  suffix = opts.suffix;
+  omega = opts.omega;
 
+  % parpool
+  parfor idS = 1:N_s-1
+    fprintf('Calcul des matrices éléments finis.\n');
+    sVar = sVec(idS, 1);
+    mu2Ds  = @(x)  mu3D([x(:, 1), cutvec(1)*x(:, 2), cutvec(2)*x(:, 2) + sVar]); %#ok
+    rho2Ds = @(x) rho3D([x(:, 1), cutvec(1)*x(:, 2), cutvec(2)*x(:, 2) + sVar]); %#ok
+
+    FEmat = [];
     tic;
-    FEmat.mat_gradu_gradv = FEPack.pdes.Form.intg(meshXY.domain('volumic'), gradu_gradv(mu2Ds));
-    FEmat.mat_gradu_vecYv = FEPack.pdes.Form.intg(meshXY.domain('volumic'), gradu_vecYv(mu2Ds));
-    FEmat.mat_vecYu_gradv = FEPack.pdes.Form.intg(meshXY.domain('volumic'), vecYu_gradv(mu2Ds));
-    FEmat.mat_vecYu_vecYv = FEPack.pdes.Form.intg(meshXY.domain('volumic'), vecYu_vecYv(mu2Ds));
-    FEmat.mat_u_v         = FEPack.pdes.Form.intg(meshXY.domain('volumic'),        u_v(rho2Ds));
+    FEmat.mat_gradu_gradv = FEPack.pdes.Form.intg(cellXY, gradu_gradv(mu2Ds));
+    FEmat.mat_gradu_vecYv = FEPack.pdes.Form.intg(cellXY, gradu_vecYv(mu2Ds));
+    FEmat.mat_vecYu_gradv = FEPack.pdes.Form.intg(cellXY, vecYu_gradv(mu2Ds));
+    FEmat.mat_vecYu_vecYv = FEPack.pdes.Form.intg(cellXY, vecYu_vecYv(mu2Ds));
+    FEmat.mat_u_v         = FEPack.pdes.Form.intg(cellXY,        u_v(rho2Ds));
     toc;
 
-    save(['outputs/FEmat_', opts.suffix, '_', num2str(idS)], '-struct', 'FEmat', '-v7.3');
+    parsave([nomdossier, 'FEmat_', suffix, '_', num2str(idS)], FEmat, true);
   end
-  
+  % delete(gcp('nocreate'))
+
   %% Compute Floquet-Bloch transform
   % Homogeneous Dirichlet boundary conditions
   ecs = ((u|edge0x) == 0.0) & ((u|edge1x) == 0.0) &...
@@ -67,8 +77,6 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
   shearmap.fun0y = @(s) spBY.evaluateBasisFunctions([mod(           s * ones(N0y-2, 1), 1), meshXY.points(edge0y.IdPoints(2:end-1), 1), zeros(N0y-2, 1)]);
   shearmap.fun1y = @(s) spBY.evaluateBasisFunctions([mod(cutslope + s * ones(N0y-2, 1), 1), meshXY.points(edge1y.IdPoints(2:end-1), 1), zeros(N1y-2, 1)]);
   
-  % Nsub = 8;
-  % sInt = linspace(0, DeltaS, Nsub);
   
   for idFB = 1:opts.numFloquetPoints
     
@@ -77,25 +85,25 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
     fprintf('<strong>Problèmes de cellule locaux et opérateurs DtN.</strong>\n');
     
     % Initialize the Face DtN operators
-    aux.T0x0x = zeros(NbX, NbX); aux.T0x1x = aux.T0x0x; aux.T1x0x = aux.T0x0x; aux.T1x1x = aux.T0x0x; 
-    aux.T0x0y = zeros(NbY, NbX); aux.T0x1y = aux.T0x0y; aux.T1x0y = aux.T0x0y; aux.T1x1y = aux.T0x0y; 
-    aux.T0y0x = zeros(NbX, NbY); aux.T0y1x = aux.T0y0x; aux.T1y0x = aux.T0y0x; aux.T1y1x = aux.T0y0x; 
-    aux.T0y0y = zeros(NbY, NbY); aux.T0y1y = aux.T0y0y; aux.T1y0y = aux.T0y0y; aux.T1y1y = aux.T0y0y;
-
+    T0x0x = zeros(NbX, NbX); T0x1x = T0x0x; T1x0x = T0x0x; T1x1x = T0x0x; 
+    T0x0y = zeros(NbY, NbX); T0x1y = T0x0y; T1x0y = T0x0y; T1x1y = T0x0y; 
+    T0y0x = zeros(NbX, NbY); T0y1x = T0y0x; T1y0x = T0y0x; T1y1x = T0y0x; 
+    T0y0y = zeros(NbY, NbY); T0y1y = T0y0y; T1y0y = T0y0y; T1y1y = T0y0y;
+    
     % Floquet variable
     FloquetVar = opts.FloquetPoints(idFB);
     
-    for idS = 1:N_s-1
+    parfor idS = 1:N_s-1
       
       %% Local cell problems
       % The FE matrix is a linear combination of elementary matrices
-      FEmat = load(['FEmat_', opts.suffix, '_', num2str(idS), '.mat']);
+      FEmat = load([nomdossier, 'FEmat_', suffix, '_', num2str(idS), '.mat']);
 
       AA = 1i * FloquetVar * FEmat.mat_vecYu_gradv + FEmat.mat_gradu_gradv...
          - 1i * FloquetVar * FEmat.mat_gradu_vecYv + FloquetVar * FloquetVar * FEmat.mat_vecYu_vecYv...
-         - (opts.omega^2) * FEmat.mat_u_v;
+         - (omega^2) * FEmat.mat_u_v;
       
-      AA0 =  ecs.P * AA * ecs.P';
+      AA0 =  ecs.P * AA * ecs.P'; %#ok
       LL0 = -ecs.P * AA * ecs.b;
       
       % Solve the linear system
@@ -105,56 +113,78 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
       % fprintf('Inversion système : %0.3e secondes\n', tpscpu);
 
       % Local cell solutions
+      solcell = [];
       solcell.E0x = Ecell0(:, 1:N0x);   Ecell0(:, 1:N0x)   = [];
       solcell.E1x = Ecell0(:, 1:N1x);   Ecell0(:, 1:N1x)   = [];
       solcell.E0y = Ecell0(:, 1:N0y-2); Ecell0(:, 1:N0y-2) = [];
       solcell.E1y = Ecell0(:, 1:N1y-2);
 
-      %% Local auxiliary DtN operators
-      sVar = meshLineZ.points(idS, 1);
+      % Save local cell solutions
+      parsave([nomdossier, 'local_cell_sol_', suffix, '_Floquet_', num2str(idFB), '_S_', num2str(idS)], solcell, true);
 
+      %% Local auxiliary DtN operators
+      basisfun = [];
+      sVar = sVec(idS, 1);
+      
       for idI = 1:4
-        nameE = ['E', sidenames{idI}];
+        nameE = ['E', sidenames{idI}]; %#ok
         nameFun = ['fun', sidenames{idI}];
 
-        basisfun.(nameFun) = solcell.(nameE) * shearmap.(nameFun)(sVar);
+        basisfun.(nameFun) = solcell.(nameE) * shearmap.(nameFun)(sVar); %#ok
       end
 
       % tic;
-      for idI = 1:4
-        nameFunI = ['fun', sidenames{idI}];
-        A_m_FunI = AA * basisfun.(nameFunI);
+      A_m_fun0x = AA * basisfun.fun0x; 
+      A_m_fun1x = AA * basisfun.fun1x; 
+      A_m_fun0y = AA * basisfun.fun0y; 
+      A_m_fun1y = AA * basisfun.fun1y; 
 
-        for idJ = 1:4
-          nameFunJ = ['fun', sidenames{idJ}];
-          nameAuxT = ['T',  sidenames{idI}, sidenames{idJ}];
-
-          % Quadrature rule
-          aux.(nameAuxT) = aux.(nameAuxT) + basisfun.(nameFunJ)' * A_m_FunI;
-        end
-      end
-      % tpscpu = toc;
-      % fprintf('Calcul DtN : %0.3e secondes\n', tpscpu);
-
-      % Save local cell data
-      save(['outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_', num2str(idS)], '-struct', 'solcell', '-v7.3');
+      T0x0x = T0x0x + basisfun.fun0x' * A_m_fun0x; 
+      T1x0x = T1x0x + basisfun.fun0x' * A_m_fun1x; 
+      T0x1x = T0x1x + basisfun.fun1x' * A_m_fun0x; 
+      T1x1x = T1x1x + basisfun.fun1x' * A_m_fun1x;
+      
+      T0x0y = T0x0y + basisfun.fun0y' * A_m_fun0x; 
+      T1x0y = T1x0y + basisfun.fun0y' * A_m_fun1x; 
+      T0x1y = T0x1y + basisfun.fun1y' * A_m_fun0x; 
+      T1x1y = T1x1y + basisfun.fun1y' * A_m_fun1x;
+      
+      T0y0x = T0y0x + basisfun.fun0x' * A_m_fun0y; 
+      T1y0x = T1y0x + basisfun.fun0x' * A_m_fun1y; 
+      T0y1x = T0y1x + basisfun.fun1x' * A_m_fun0y; 
+      T1y1x = T1y1x + basisfun.fun1x' * A_m_fun1y;
+      
+      T0y0y = T0y0y + basisfun.fun0y' * A_m_fun0y; 
+      T1y0y = T1y0y + basisfun.fun0y' * A_m_fun1y; 
+      T0y1y = T0y1y + basisfun.fun1y' * A_m_fun0y; 
+      T1y1y = T1y1y + basisfun.fun1y' * A_m_fun1y;
+      
     end
-    system(['cp outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_1.mat outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_', num2str(N_s), '.mat']);
+    system(['cp ', nomdossier, 'local_cell_sol_', suffix, '_Floquet_', num2str(idFB), '_S_1.mat ', nomdossier, 'local_cell_sol_', suffix, '_Floquet_', num2str(idFB), '_S_', num2str(N_s), '.mat']);
 
     %% Compute DtD operator
     fprintf('<strong>Calcul opérateur DtD.</strong>\n');
 
     % Divide DtN operators by the quadrature weight
-    for idI = 1:4
-      for idJ = 1:4
-        nameAuxT  = ['T',  sidenames{idI}, sidenames{idJ}];
-        aux.(nameAuxT) = aux.(nameAuxT) * DeltaS / opts.cutvec(1);
-      end
-    end 
+    T0x0x = T0x0x * DeltaS / opts.cutvec(1);
+    T1x0x = T1x0x * DeltaS / opts.cutvec(1);
+    T0x1x = T0x1x * DeltaS / opts.cutvec(1);
+    T1x1x = T1x1x * DeltaS / opts.cutvec(1);
+    T0x0y = T0x0y * DeltaS / opts.cutvec(1);
+    T1x0y = T1x0y * DeltaS / opts.cutvec(1);
+    T0x1y = T0x1y * DeltaS / opts.cutvec(1);
+    T1x1y = T1x1y * DeltaS / opts.cutvec(1);
+    T0y0x = T0y0x * DeltaS / opts.cutvec(1);
+    T1y0x = T1y0x * DeltaS / opts.cutvec(1);
+    T0y1x = T0y1x * DeltaS / opts.cutvec(1);
+    T1y1x = T1y1x * DeltaS / opts.cutvec(1);
+    T0y0y = T0y0y * DeltaS / opts.cutvec(1);
+    T1y0y = T1y0y * DeltaS / opts.cutvec(1);
+    T0y1y = T0y1y * DeltaS / opts.cutvec(1);
+    T1y1y = T1y1y * DeltaS / opts.cutvec(1);
 
     % Solve linear system
-    % spy(aux.T1y0y + aux.T0y0y + aux.T0y1y + aux.T1y1y);
-    DtD = (aux.T1y0y + aux.T0y0y + aux.T1y1y + aux.T0y1y) \ [-(aux.T0x0y + aux.T0x1y), -(aux.T1x0y + aux.T1x1y)];
+    DtD = (T1y0y + T0y0y + T1y1y + T0y1y) \ [-(T0x0y + T0x1y), -(T1x0y + T1x1y)];
     solguide.DtD0 = DtD(:,     1:NbX);
     solguide.DtD1 = DtD(:, NbX+1:end);
 
@@ -167,10 +197,10 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
 
     % Fkl is the normal trace of Ek on Sigmal. It is evaluated weakly and then projected
     fprintf('<strong>Opérateurs DtN locaux.</strong>\n');
-    F00 = spBX.invmassmat * ((aux.T0y0x + aux.T1y0x) * solguide.DtD0 + aux.T0x0x);
-    F10 = spBX.invmassmat * ((aux.T0y0x + aux.T1y0x) * solguide.DtD1 + aux.T1x0x);
-    F01 = spBX.invmassmat * ((aux.T0y1x + aux.T1y1x) * solguide.DtD0 + aux.T0x1x);
-    F11 = spBX.invmassmat * ((aux.T0y1x + aux.T1y1x) * solguide.DtD1 + aux.T1x1x);
+    F00 = spBX.invmassmat * ((T0y0x + T1y0x) * solguide.DtD0 + T0x0x);
+    F10 = spBX.invmassmat * ((T0y0x + T1y0x) * solguide.DtD1 + T1x0x);
+    F01 = spBX.invmassmat * ((T0y1x + T1y1x) * solguide.DtD0 + T0x1x);
+    F11 = spBX.invmassmat * ((T0y1x + T1y1x) * solguide.DtD1 + T1x1x);
     
     %% Solve the Riccati equation
     fprintf('<strong>Equation de Riccati.</strong>\n');
@@ -178,7 +208,7 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
     flux = @(V) modesFlux(V, E00, E10, F00, F10, orientation, spB0, opts.omega);
     riccatiOpts.tol = 1.0e-2;
     if isfield(opts, 'suffix')
-      riccatiOpts.suffix = opts.suffix;
+      riccatiOpts.suffix = suffix;
     else
       riccatiOpts.suffix = '';
     end
@@ -197,7 +227,7 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
     solguide.Lambda = -BCstruct.BCu' * dU0 + BCstruct.BCdu' * U0;
 
     %% Save outputs
-    save(['outputs/half_guide_sol_', opts.suffix, '_Floquet_', num2str(idFB)], '-struct', 'solguide', '-v7.3');
+    save([nomdossier, 'half_guide_sol_', suffix, '_Floquet_', num2str(idFB)], '-struct', 'solguide', '-v7.3');
   end
 
 end

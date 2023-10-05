@@ -117,94 +117,95 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
     end
 
-    function AA = intg_shiftU_V(varargin)
-      % function AA = intg_shiftU_V(sp, tau, fun, quadRule)
-      %
-      % INTG_SHIFTU_V computes the matrix associated to the form
-      %
-      %     intg_domain f(x) * phi_j(x + tau) * overline{phi_i(x)} dx
-      %
-      % INPUTS: * sp, the FourierBasis object,
-      %         * tau, n-sized vector where n equals the mesh dimension
-      %         * fun (function handle) the coefficient in the integral
-      %           WARNING: fun must take in argument a nx3 matrix, and return
-      %                    a nx1 vector.
-      %         * quadRule (QuadratureObject) is optional. For more information,
-      %           see +tools/QuadratureObject.m.
-      %           WARNING: if provided, quadRule.points are expected to
-      %                    span [0, 1].
+    %% AUCUN INTERET POUR FOURIER
+    % function AA = intg_shiftU_V(varargin)
+    %   % function AA = intg_shiftU_V(sp, tau, fun, quadRule)
+    %   %
+    %   % INTG_SHIFTU_V computes the matrix associated to the form
+    %   %
+    %   %     intg_domain f(x) * phi_j(x + tau) * overline{phi_i(x)} dx
+    %   %
+    %   % INPUTS: * sp, the FourierBasis object,
+    %   %         * tau, n-sized vector where n equals the mesh dimension
+    %   %         * fun (function handle) the coefficient in the integral
+    %   %           WARNING: fun must take in argument a nx3 matrix, and return
+    %   %                    a nx1 vector.
+    %   %         * quadRule (QuadratureObject) is optional. For more information,
+    %   %           see +tools/QuadratureObject.m.
+    %   %           WARNING: if provided, quadRule.points are expected to
+    %   %                    span [0, 1].
 
-      sp  = varargin{1};
-      dom = sp.domain;
-      tau = varargin{2};
+    %   sp  = varargin{1};
+    %   dom = sp.domain;
+    %   tau = varargin{2};
 
-      % The size of the shift should be more than 1 and less or equal than the
-      % mesh dimension
-      if (isempty(tau) || (length(tau) > dom.mesh.dimension))
-        error(['Le nombre de coefficients du shift ',...
-              'doit être > 0 et <= à la dimension du maillage.']);
-      end
+    %   % The size of the shift should be more than 1 and less or equal than the
+    %   % mesh dimension
+    %   if (isempty(tau) || (length(tau) > dom.mesh.dimension))
+    %     error(['Le nombre de coefficients du shift ',...
+    %           'doit être > 0 et <= à la dimension du maillage.']);
+    %   end
 
-      % Fill the other coordinates of the shift with zeros
-      Ltau = length(tau);
-      tau = [tau(:).', zeros(1, 3 - Ltau)];
+    %   % Fill the other coordinates of the shift with zeros
+    %   Ltau = length(tau);
+    %   tau = [tau(:).', zeros(1, 3 - Ltau)];
 
-      if (nargin < 3)
+    %   if (nargin < 3)
 
-        % When no symbol is provided, it is chosen equal to 1 by default,
-        % in which case the expression of the matrix is simplified.
-        AA = diag(sp.phis(tau, (1:sp.numBasis)));
+    %     % When no symbol is provided, it is chosen equal to 1 by default,
+    %     % in which case the expression of the matrix is simplified.
+    %     AA = diag(sp.phis(tau, (1:sp.numBasis)));
 
-      else
+    %   else
 
-        fun = varargin{3};
+    %     fun = varargin{3};
 
-        if (nargin < 4)
-          quadRule = FEPack.tools.QuadratureObject(1);
-        end
+    %     if (nargin < 4)
+    %       quadRule = FEPack.tools.QuadratureObject(1);
+    %     end
 
-        % The integrals are computed using a composite rule
-        coo_names = 'XYZ';
+    %     % The integrals are computed using a composite rule
+    %     coo_names = 'XYZ';
 
-        for Icoo = 1:3
-          FourierId = sp.FourierIds.(coo_names(Icoo));
-          N = 2 * max(FourierId) + 1;
+    %     for Icoo = 1:3
+    %       FourierId = sp.FourierIds.(coo_names(Icoo));
+    %       N = 2 * max(FourierId) + 1;
 
-          BB = [min(dom.mesh.points(:, Icoo)), max(dom.mesh.points(:, Icoo))];
-          compRules.(coo_names(Icoo)) = FEPack.tools.QuadratureObject.composite_segment('uniform', BB(1), BB(2), N, quadRule);
-        end
+    %       BB = [min(dom.mesh.points(:, Icoo)), max(dom.mesh.points(:, Icoo))];
+    %       compRules.(coo_names(Icoo)) = FEPack.tools.QuadratureObject.composite_segment('uniform', BB(1), BB(2), N, quadRule);
+    %     end
 
-        dX = length(sp.FourierIds.X); NquadX = compRules.X.numQuad;
-        dY = length(sp.FourierIds.Y); NquadY = compRules.Y.numQuad;
-        dZ = length(sp.FourierIds.Z); NquadZ = compRules.Z.numQuad;
+    %     dX = length(sp.FourierIds.X); NquadX = compRules.X.numQuad;
+    %     dY = length(sp.FourierIds.Y); NquadY = compRules.Y.numQuad;
+    %     dZ = length(sp.FourierIds.Z); NquadZ = compRules.Z.numQuad;
 
-        % Define the points and weights
-        points = [kron(compRules.X.points(:), kron(ones(NquadY, 1), ones(NquadZ, 1))),...
-                  kron(ones(NquadX, 1), kron(compRules.Y.points(:), ones(NquadZ, 1))),...
-                  kron(ones(NquadX, 1), kron(ones(NquadY, 1), compRules.Z.points(:)))];
+    %     % Define the points and weights
+    %     points = [kron(compRules.X.points(:), kron(ones(NquadY, 1), ones(NquadZ, 1))),...
+    %               kron(ones(NquadX, 1), kron(compRules.Y.points(:), ones(NquadZ, 1))),...
+    %               kron(ones(NquadX, 1), kron(ones(NquadY, 1), compRules.Z.points(:)))];
 
-        weights = kron(compRules.X.weights(:), kron(ones(NquadY, 1), ones(NquadZ, 1))).*...
-                  kron(ones(NquadX, 1), kron(compRules.Y.weights(:), ones(NquadZ, 1))).*...
-                  kron(ones(NquadX, 1), kron(ones(NquadY, 1), compRules.Z.weights(:)));
+    %     weights = kron(compRules.X.weights(:), kron(ones(NquadY, 1), ones(NquadZ, 1))).*...
+    %               kron(ones(NquadX, 1), kron(compRules.Y.weights(:), ones(NquadZ, 1))).*...
+    %               kron(ones(NquadX, 1), kron(ones(NquadY, 1), compRules.Z.weights(:)));
 
-        % Compute the matrix coefficients
-        FourierIdsX = kron(sp.FourierIds.X, kron(ones(1, dY), ones(1, dZ)));
-        FourierIdsY = kron(ones(1, dX), kron(sp.FourierIds.Y, ones(1, dZ)));
-        FourierIdsZ = kron(ones(1, dX), kron(ones(1, dY), sp.FourierIds.Z));
+    %     % Compute the matrix coefficients
+    %     FourierIdsX = kron(sp.FourierIds.X, kron(ones(1, dY), ones(1, dZ)));
+    %     FourierIdsY = kron(ones(1, dX), kron(sp.FourierIds.Y, ones(1, dZ)));
+    %     FourierIdsZ = kron(ones(1, dX), kron(ones(1, dY), sp.FourierIds.Z));
 
-        phis = exp(2i * pi * (points(:, 1) * FourierIdsX +...
-                              points(:, 2) * FourierIdsY +...
-                              points(:, 3) * FourierIdsZ));
+    %     phis = exp(2i * pi * (points(:, 1) * FourierIdsX +...
+    %                           points(:, 2) * FourierIdsY +...
+    %                           points(:, 3) * FourierIdsZ));
 
-        Intg = weights .* fun(points) .* exp(2i * pi * (tau(1)*FourierIdsX +...
-                                                        tau(2)*FourierIdsY +...
-                                                        tau(3)*FourierIdsZ));
+    %     Intg = weights .* fun(points) .* exp(2i * pi * (tau(1)*FourierIdsX +...
+    %                                                     tau(2)*FourierIdsY +...
+    %                                                     tau(3)*FourierIdsZ));
 
-        AA = phis' * (Intg .* phis);
+    %     AA = phis' * (Intg .* phis);
 
-      end
+    %   end
 
-    end
+    % end
 
   end
 

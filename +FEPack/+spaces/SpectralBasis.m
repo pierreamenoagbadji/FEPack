@@ -231,7 +231,11 @@ classdef SpectralBasis < FEPack.FEPackObject
 
     end
 
-    function res = evaluateBasisFunctions(sp, P)
+    function res = evaluateBasisFunctions(sp, P, basis_ids)
+
+      if (nargin < 3)
+        basis_ids = 1:sp.numBasis;
+      end
 
       if (sp.is_interpolated)
 
@@ -242,11 +246,11 @@ classdef SpectralBasis < FEPack.FEPackObject
         elts = sp.domain.elements(structLoc.elements, :);
         coos = structLoc.barycoos;
 
-        res = zeros(size(P, 1), sp.numBasis);
+        res = zeros(size(P, 1), numel(basis_ids));
 
         for idI = 1:size(P, 1)
           for idJ = 1:size(coos, 2)
-            res(idI, :) = res(idI, :) + coos(idI, idJ) * sp.phis(elts(idI, idJ), :);
+            res(idI, :) = res(idI, :) + coos(idI, idJ) * sp.phis(elts(idI, idJ), basis_ids);
           end
         end
 
@@ -254,7 +258,7 @@ classdef SpectralBasis < FEPack.FEPackObject
 
         % The basis functions are defined by an explicit expression
         % of the form @(P, n) phis(P, n)
-        res = sp.phis(P, 1:sp.numBasis);
+        res = sp.phis(P, basis_ids);
         
       end
 

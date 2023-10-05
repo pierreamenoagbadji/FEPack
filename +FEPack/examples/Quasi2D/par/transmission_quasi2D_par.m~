@@ -1,22 +1,26 @@
 clear; clc;
-warning('Fichiers dans outputs/ supprimés.');
-!rm outputs/*
 %%
 import FEPack.*
-% profile OFF
+profile OFF
 % profile ON
 
 %% Problem-related variables
-opts.omega = 8 + 1i;
+opts.omega = 8 + 0.5i;
 opts.period = 1;
 opts.verbose = 0;
+opts.nomdossier = 'outputs/'; % /!\ Pas oublier le / à la fin
+% opts.nomdossier = '/UMA/tmp/amenoagbadji/solution_A_homogeneous/'; % /!\ Pas oublier le / à la fin
+nomdossier = opts.nomdossier;
 problem_setting = 'A'; % 'A' or 'B'
+
+warning(['Fichiers dans ', nomdossier, ' supprimés.']);
+system(['rm ', nomdossier, '*']);
 
 if strcmpi(problem_setting, 'A')
 
   % 2D coefficients
-  period_posFun = cos(pi/3);% 0.5*sqrt(2);
-  period_negFun = sin(pi/3);%*sqrt(2);
+  period_posFun = 1;%/(0.5*sqrt(2));
+  period_negFun = 0.5*sqrt(2);
 
   mu2Dpos =  @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
   rho2Dpos = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
@@ -73,28 +77,28 @@ G3D = @(x) G([zeros(size(x, 1), 1), x(:, 2)/opts.cutvec(1), zeros(size(x, 1), 1)
 numCellsSemiInfinite_pos = 6;
 numCellsSemiInfinite_neg = 6;
 opts.numCellsInfinite = 6;
-opts.numFloquetPoints = 20;
+opts.numFloquetPoints = 50;
 opts.FloquetPoints = linspace(-pi/opts.period, pi/opts.period, opts.numFloquetPoints);
 
 %% Meshes
 struct_mesh = 0;
 
-numNodesX = 8;
-numNodesY = 8;
-numNodesZ = 8;
+numNodesX = 16;
+numNodesY = 16;
+numNodesZ = 16;
 ratio_s = 1; % more nodes for the transverse direction
 
 meshXYpos = meshes.MeshRectangle(struct_mesh, [0  1], [0 1/opts.cutvec(1)], numNodesX, ceil(numNodesY/opts.cutvec(1)));
 meshXYneg = meshes.MeshRectangle(struct_mesh, [0 -1], [0 1/opts.cutvec(1)], numNodesX, ceil(numNodesY/opts.cutvec(1)));
-meshZXpos = meshes.MeshRectangle(struct_mesh, [0 1], [0  1], numNodesZ, numNodesX);
-meshZXneg = meshes.MeshRectangle(struct_mesh, [0 1], [0 -1], numNodesZ, numNodesX);
+meshZXpos = meshes.MeshRectangle(struct_mesh, [0 1], [0  1], numNodesZ, 8*numNodesX);
+meshZXneg = meshes.MeshRectangle(struct_mesh, [0 1], [0 -1], numNodesZ, 8*numNodesX);
 meshYZ = meshes.MeshRectangle(struct_mesh, [0 1], [0 1], numNodesY, numNodesZ);
 meshLineZ = meshes.MeshSegment('uniform', 0, 1, numNodesZ * ratio_s);
 
 %% Basis functions and boundary conditions
 % Positive side
 basis_functions_X = 'Fourier';
-basis_functions_Y = 'Lagrange';
+basis_functions_Y = 'Fourier';
 if strcmpi(basis_functions_X, 'Lagrange')
   BCstruct.pos.spBX = FEPack.spaces.PeriodicLagrangeBasis(meshYZ.domain('volumic')); % X = cst
 else
@@ -114,7 +118,7 @@ end
 % Other parameters
 BCstruct.pos.BCdu = 0.0;
 BCstruct.pos.BCu = 1.0;
-BCstruct.pos.representation = 'projection';
+% BCstruct.pos.representation = 'projection';
 
 % Negative side
 BCstruct.neg = BCstruct.pos;
@@ -131,54 +135,62 @@ end
 
 %% Compute DtN operators
 opts.suffix = 'pos';
-% quasi2DHalfGuideDirichlet(+1, meshXYpos, meshLineZ, mu3Dpos, rho3Dpos, BCstruct.pos, opts);
-quasi2DHalfGuideDirichlet_old(+1, meshXYpos, meshLineZ, opts.omega, mu3Dpos, rho3Dpos, BCstruct.pos, opts);
+quasi2DHalfGuideDirichlet_par(+1, meshXYpos, meshLineZ, mu3Dpos, rho3Dpos, BCstruct.pos, opts);
+system(['rm ', nomdossier, 'FEmat_*']);
 %%
 opts.suffix = 'neg';
-% quasi2DHalfGuideDirichlet(-1, meshXYneg, meshLineZ, mu3Dneg, rho3Dneg, BCstruct.neg, opts);
-quasi2DHalfGuideDirichlet_old(-1, meshXYneg, meshLineZ, opts.omega, mu3Dneg, rho3Dneg, BCstruct.neg, opts);
+quasi2DHalfGuideDirichlet_par(-1, meshXYneg, meshLineZ, mu3Dneg, rho3Dneg, BCstruct.neg, opts);
+system(['rm ', nomdossier, 'FEmat_*']);
 
 %% Interface equation
 fprintf('<strong>Equation d''interface.</strong>\n');
-for idFB = 1:opts.numFloquetPoints
-  fprintf('%d sur %d\n', idFB, opts.numFloquetPoints);
-  FloquetVar = opts.FloquetPoints(idFB);
+FloquetPoints = opts.FloquetPoints;
+numFloquetPoints = opts.numFloquetPoints;
+pointsYZ = meshYZ.points;
+spBX_FE_to_spectral = BCstruct.pos.spBX.FE_to_spectral;
+period = opts.period;
+
+parfor idFB = 1:numFloquetPoints
+  fprintf('%d sur %d\n', idFB, numFloquetPoints);
+  FloquetVar = FloquetPoints(idFB);
 
   % DtN operators
-  solguidePos = load(['outputs/half_guide_sol_pos_Floquet_', num2str(idFB)]);
-  solguideNeg = load(['outputs/half_guide_sol_neg_Floquet_', num2str(idFB)]);
+  solguidePos = load([nomdossier, 'half_guide_sol_pos_Floquet_', num2str(idFB)]);
+  solguideNeg = load([nomdossier, 'half_guide_sol_neg_Floquet_', num2str(idFB)]);
   
   Lambda_pos = solguidePos.Lambda;
   Lambda_neg = solguideNeg.Lambda;
 
   % Rhs
-  jumpData_FB = @(x) BlochTransform(x, FloquetVar, G3D, 2, opts.period, 100);
-  GG = BCstruct.pos.spBX.FE_to_spectral * jumpData_FB(meshYZ.points);
+  jumpData_FB = @(x) BlochTransform(x, FloquetVar, G3D, 2, period, 100);
+  GG = spBX_FE_to_spectral * jumpData_FB(pointsYZ);
     
   % The minus sign comes from the definition of the Lambda
-  soltrace = -(Lambda_pos + Lambda_neg) \ GG;
+  soltrace = [];
+  soltrace.vec = -(Lambda_pos + Lambda_neg) \ GG;
+  %soltrace.vec = GG;
   
   % Save the trace of the solution
-  save(['outputs/sol_trace_Floquet_', num2str(idFB)], 'soltrace', '-v7.3');
+  parsave([nomdossier, 'sol_trace_Floquet_', num2str(idFB)], soltrace, true);
 end
 
 %% Construct solution
 opts.suffix = 'pos';
 opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
-construct_solution(meshXYpos, meshLineZ, BCstruct.pos, opts);
+construct_solution_par(+1, meshXYpos, meshLineZ, BCstruct.pos, opts);
 
 opts.suffix = 'neg';
 opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
-construct_solution(meshXYneg, meshLineZ, BCstruct.neg, opts);
+construct_solution_par(-1, meshXYneg, meshLineZ, BCstruct.neg, opts);
 
-% Plot solution
+%% Plot solution
 mafig = figure;
 set(groot,'defaultAxesTickLabelInterpreter','latex');
 set(groot,'defaulttextinterpreter','latex');
 set(groot,'defaultLegendInterpreter','latex');
 
 for idY = 1:2*opts.numCellsInfinite
-  sol = load(['outputs/solution_pos_Y_', num2str(idY)]);
+  sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
 
   for idX = 1:numCellsSemiInfinite_pos
     X = meshXYpos.points(:, 1) + (idX - 1);
@@ -193,7 +205,7 @@ end
 %
 %
 for idY = 1:2*opts.numCellsInfinite
-  sol = load(['outputs/solution_neg_Y_', num2str(idY)]);
+  sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
 
   for idX = 1:numCellsSemiInfinite_neg
     X = meshXYneg.points(:, 1) - (idX - 1);
@@ -208,5 +220,11 @@ end
 
 xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
 ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
-savefig(mafig, 'outputs/solution', 'compact');
- 
+% ylim([1/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
+% caxis([-0.25, 0.25]);
+
+% system(['rm ', nomdossier, 'half_guide_*']);
+% system(['rm ', nomdossier, 'local_cell_sol_*']);
+% system(['rm ', nomdossier, 'sol_trace_Floquet_*']);
+
+savefig(mafig, [nomdossier, 'solution'], 'compact');

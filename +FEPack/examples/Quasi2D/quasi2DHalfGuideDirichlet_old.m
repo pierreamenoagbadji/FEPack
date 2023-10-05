@@ -1,8 +1,8 @@
-function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, BCstruct, opts)
+function quasi2DHalfGuideDirichlet_old(orientation, meshXY, meshLineZ, omega, mu3D, rho3D, BCstruct, opts)
 
   %% Initialization
   cutslope = opts.cutvec(2) / opts.cutvec(1);
-  DeltaS = meshLineZ.points(2, 1) - meshLineZ.points(1, 1);
+  % DeltaS = meshLineZ.points(2, 1) - meshLineZ.points(1, 1);
   N_s = meshLineZ.numPoints;
   N_XY = meshXY.numPoints;
 
@@ -67,33 +67,25 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
   shearmap.fun0y = @(s) spBY.evaluateBasisFunctions([mod(           s * ones(N0y-2, 1), 1), meshXY.points(edge0y.IdPoints(2:end-1), 1), zeros(N0y-2, 1)]);
   shearmap.fun1y = @(s) spBY.evaluateBasisFunctions([mod(cutslope + s * ones(N0y-2, 1), 1), meshXY.points(edge1y.IdPoints(2:end-1), 1), zeros(N1y-2, 1)]);
   
-  % Nsub = 8;
-  % sInt = linspace(0, DeltaS, Nsub);
   
-  for idFB = 1:opts.numFloquetPoints
-    
-    %% Local cell problems and DtN operators
-    fprintf('%d sur %d\n', idFB, opts.numFloquetPoints);
-    fprintf('<strong>Problèmes de cellule locaux et opérateurs DtN.</strong>\n');
-    
-    % Initialize the Face DtN operators
-    aux.T0x0x = zeros(NbX, NbX); aux.T0x1x = aux.T0x0x; aux.T1x0x = aux.T0x0x; aux.T1x1x = aux.T0x0x; 
-    aux.T0x0y = zeros(NbY, NbX); aux.T0x1y = aux.T0x0y; aux.T1x0y = aux.T0x0y; aux.T1x1y = aux.T0x0y; 
-    aux.T0y0x = zeros(NbX, NbY); aux.T0y1x = aux.T0y0x; aux.T1y0x = aux.T0y0x; aux.T1y1x = aux.T0y0x; 
-    aux.T0y0y = zeros(NbY, NbY); aux.T0y1y = aux.T0y0y; aux.T1y0y = aux.T0y0y; aux.T1y1y = aux.T0y0y;
+  quadpts = linspace(0, 1, N_s * 8);
+  quadwgt = quadpts(2) - quadpts(1);
+  Nquad = numel(quadpts);
 
-    % Floquet variable
+  for idFB = 1:opts.numFloquetPoints
+    %% Local cell problems
+    fprintf('<strong>Problèmes de cellule locaux.</strong>\n');
+    fprintf('%d sur %d\n', idFB, opts.numFloquetPoints);
+    
     FloquetVar = opts.FloquetPoints(idFB);
     
     for idS = 1:N_s-1
-      
-      %% Local cell problems
       % The FE matrix is a linear combination of elementary matrices
       FEmat = load(['FEmat_', opts.suffix, '_', num2str(idS), '.mat']);
 
       AA = 1i * FloquetVar * FEmat.mat_vecYu_gradv + FEmat.mat_gradu_gradv...
          - 1i * FloquetVar * FEmat.mat_gradu_vecYv + FloquetVar * FloquetVar * FEmat.mat_vecYu_vecYv...
-         - (opts.omega^2) * FEmat.mat_u_v;
+         - (omega^2) * FEmat.mat_u_v;
       
       AA0 =  ecs.P * AA * ecs.P';
       LL0 = -ecs.P * AA * ecs.b;
@@ -105,32 +97,19 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
       % fprintf('Inversion système : %0.3e secondes\n', tpscpu);
 
       % Local cell solutions
-      solcell.E0x = Ecell0(:, 1:N0x);   Ecell0(:, 1:N0x)   = [];
-      solcell.E1x = Ecell0(:, 1:N1x);   Ecell0(:, 1:N1x)   = [];
+      solcell.E0x = Ecell0(:, 1:N0x); Ecell0(:, 1:N0x) = [];
+      solcell.E1x = Ecell0(:, 1:N1x); Ecell0(:, 1:N1x) = [];
       solcell.E0y = Ecell0(:, 1:N0y-2); Ecell0(:, 1:N0y-2) = [];
       solcell.E1y = Ecell0(:, 1:N1y-2);
 
-      %% Local auxiliary DtN operators
-      sVar = meshLineZ.points(idS, 1);
-
-      for idI = 1:4
-        nameE = ['E', sidenames{idI}];
-        nameFun = ['fun', sidenames{idI}];
-
-        basisfun.(nameFun) = solcell.(nameE) * shearmap.(nameFun)(sVar);
-      end
-
+      % local edge DtN operators
       % tic;
       for idI = 1:4
-        nameFunI = ['fun', sidenames{idI}];
-        A_m_FunI = AA * basisfun.(nameFunI);
-
         for idJ = 1:4
-          nameFunJ = ['fun', sidenames{idJ}];
-          nameAuxT = ['T',  sidenames{idI}, sidenames{idJ}];
-
-          % Quadrature rule
-          aux.(nameAuxT) = aux.(nameAuxT) + basisfun.(nameFunJ)' * A_m_FunI;
+          nameEi  = ['E', sidenames{idI}];
+          nameEj  = ['E', sidenames{idJ}];
+          nameTij = ['edgeT', sidenames{idI}, sidenames{idJ}];
+          solcell.(nameTij) = solcell.(nameEj)' * (AA * solcell.(nameEi));
         end
       end
       % tpscpu = toc;
@@ -141,19 +120,84 @@ function quasi2DHalfGuideDirichlet(orientation, meshXY, meshLineZ, mu3D, rho3D, 
     end
     system(['cp outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_1.mat outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_', num2str(N_s), '.mat']);
 
-    %% Compute DtD operator
-    fprintf('<strong>Calcul opérateur DtD.</strong>\n');
+    %% Auxiliary face DtN operators
+    % Initialize the operators
+    aux.T0x0x = zeros(NbX, NbX); aux.T0x1x = aux.T0x0x; aux.T1x0x = aux.T0x0x; aux.T1x1x = aux.T0x0x; 
+    aux.T0x0y = zeros(NbY, NbX); aux.T0x1y = aux.T0x0y; aux.T1x0y = aux.T0x0y; aux.T1x1y = aux.T0x0y; 
+    aux.T0y0x = zeros(NbX, NbY); aux.T0y1x = aux.T0y0x; aux.T1y0x = aux.T0y0x; aux.T1y1x = aux.T0y0x; 
+    aux.T0y0y = zeros(NbY, NbY); aux.T0y1y = aux.T0y0y; aux.T1y0y = aux.T0y0y; aux.T1y1y = aux.T0y0y;
 
-    % Divide DtN operators by the quadrature weight
+    % Quadrature rule
+    pref = ['outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S'];
+    for idS = 1:Nquad-1
+      sVar = quadpts(idS);
+      
+      edgeT0x0x = interpolateObj([sVar, 0, 0], pref, 'edgeT0x0x', meshLineZ.domain('volumic'));
+      edgeT0x1x = interpolateObj([sVar, 0, 0], pref, 'edgeT0x1x', meshLineZ.domain('volumic'));
+      edgeT1x0x = interpolateObj([sVar, 0, 0], pref, 'edgeT1x0x', meshLineZ.domain('volumic'));
+      edgeT1x1x = interpolateObj([sVar, 0, 0], pref, 'edgeT1x1x', meshLineZ.domain('volumic'));
+
+      edgeT0x0y = interpolateObj([sVar, 0, 0], pref, 'edgeT0x0y', meshLineZ.domain('volumic'));
+      edgeT0x1y = interpolateObj([sVar, 0, 0], pref, 'edgeT0x1y', meshLineZ.domain('volumic'));
+      edgeT1x0y = interpolateObj([sVar, 0, 0], pref, 'edgeT1x0y', meshLineZ.domain('volumic'));
+      edgeT1x1y = interpolateObj([sVar, 0, 0], pref, 'edgeT1x1y', meshLineZ.domain('volumic'));
+
+      edgeT0y0x = interpolateObj([sVar, 0, 0], pref, 'edgeT0y0x', meshLineZ.domain('volumic'));
+      edgeT0y1x = interpolateObj([sVar, 0, 0], pref, 'edgeT0y1x', meshLineZ.domain('volumic'));
+      edgeT1y0x = interpolateObj([sVar, 0, 0], pref, 'edgeT1y0x', meshLineZ.domain('volumic'));
+      edgeT1y1x = interpolateObj([sVar, 0, 0], pref, 'edgeT1y1x', meshLineZ.domain('volumic'));
+
+      edgeT0y0y = interpolateObj([sVar, 0, 0], pref, 'edgeT0y0y', meshLineZ.domain('volumic'));
+      edgeT0y1y = interpolateObj([sVar, 0, 0], pref, 'edgeT0y1y', meshLineZ.domain('volumic'));
+      edgeT1y0y = interpolateObj([sVar, 0, 0], pref, 'edgeT1y0y', meshLineZ.domain('volumic'));
+      edgeT1y1y = interpolateObj([sVar, 0, 0], pref, 'edgeT1y1y', meshLineZ.domain('volumic'));
+      
+      % load(['outputs/local_cell_sol_', opts.suffix, '_Floquet_', num2str(idFB), '_S_', num2str(idS)]);
+
+      aux.T0x0x = aux.T0x0x + shearmap.fun0x(sVar)' * edgeT0x0x * shearmap.fun0x(sVar);
+      aux.T0x1x = aux.T0x1x + shearmap.fun1x(sVar)' * edgeT0x1x * shearmap.fun0x(sVar);
+      aux.T1x0x = aux.T1x0x + shearmap.fun0x(sVar)' * edgeT1x0x * shearmap.fun1x(sVar);
+      aux.T1x1x = aux.T1x1x + shearmap.fun1x(sVar)' * edgeT1x1x * shearmap.fun1x(sVar);
+
+      aux.T0x0y = aux.T0x0y + shearmap.fun0y(sVar)' * edgeT0x0y * shearmap.fun0x(sVar);
+      aux.T0x1y = aux.T0x1y + shearmap.fun1y(sVar)' * edgeT0x1y * shearmap.fun0x(sVar);
+      aux.T1x0y = aux.T1x0y + shearmap.fun0y(sVar)' * edgeT1x0y * shearmap.fun1x(sVar);
+      aux.T1x1y = aux.T1x1y + shearmap.fun1y(sVar)' * edgeT1x1y * shearmap.fun1x(sVar);
+
+      aux.T0y0x = aux.T0y0x + shearmap.fun0x(sVar)' * edgeT0y0x * shearmap.fun0y(sVar);
+      aux.T0y1x = aux.T0y1x + shearmap.fun1x(sVar)' * edgeT0y1x * shearmap.fun0y(sVar);
+      aux.T1y0x = aux.T1y0x + shearmap.fun0x(sVar)' * edgeT1y0x * shearmap.fun1y(sVar);
+      aux.T1y1x = aux.T1y1x + shearmap.fun1x(sVar)' * edgeT1y1x * shearmap.fun1y(sVar);
+
+      aux.T0y0y = aux.T0y0y + shearmap.fun0y(sVar)' * edgeT0y0y * shearmap.fun0y(sVar);
+      aux.T0y1y = aux.T0y1y + shearmap.fun1y(sVar)' * edgeT0y1y * shearmap.fun0y(sVar);
+      aux.T1y0y = aux.T1y0y + shearmap.fun0y(sVar)' * edgeT1y0y * shearmap.fun1y(sVar);
+      aux.T1y1y = aux.T1y1y + shearmap.fun1y(sVar)' * edgeT1y1y * shearmap.fun1y(sVar);
+
+      % for idI = 1:4
+      %   nameFunI = ['fun', sidenames{idI}];
+
+      %   for idJ = 1:4
+      %     nameFunJ = ['fun', sidenames{idJ}];
+      %     nameAuxT  = ['T',  sidenames{idI}, sidenames{idJ}];
+      %     nameEdgeT = ['edgeT',  sidenames{idI}, sidenames{idJ}];
+
+      %     aux.(nameAuxT) = aux.(nameAuxT) + shearmap.(nameFunJ)(sVar)' * solcell.(nameEdgeT) * shearmap.(nameFunI)(sVar);
+      %   end
+      % end
+    end
+
+    % Divide by the quadrature weight
     for idI = 1:4
       for idJ = 1:4
         nameAuxT  = ['T',  sidenames{idI}, sidenames{idJ}];
-        aux.(nameAuxT) = aux.(nameAuxT) * DeltaS / opts.cutvec(1);
+        aux.(nameAuxT) = aux.(nameAuxT) * quadwgt / opts.cutvec(1);
       end
-    end 
+    end
 
-    % Solve linear system
-    % spy(aux.T1y0y + aux.T0y0y + aux.T0y1y + aux.T1y1y);
+    %% Compute DtD operator
+    fprintf('<strong>Calcul opérateur DtD.</strong>\n');
+    spy(aux.T1y0y + aux.T0y0y + aux.T0y1y + aux.T1y1y);
     DtD = (aux.T1y0y + aux.T0y0y + aux.T1y1y + aux.T0y1y) \ [-(aux.T0x0y + aux.T0x1y), -(aux.T1x0y + aux.T1x1y)];
     solguide.DtD0 = DtD(:,     1:NbX);
     solguide.DtD1 = DtD(:, NbX+1:end);

@@ -2,12 +2,12 @@ import FEPack.*
 clear; clc;
  
 % Transmission entre deux milieux constants
-omega = 8 + 0.25i;
+omega = 8 + 1i;
 rho_pos = 1;
 rho_neg = 1;
 
 alphaG = 0.5;
-G = @(z) 100 * FEPack.tools.cutoff(z, -alphaG, alphaG);
+G = @(z) FEPack.tools.cutoff(z, -alphaG, alphaG);
 % alpha_G = 1;
 % eps_G = 1e-8;
 % supp_G = -log(eps_G) / alpha_G;

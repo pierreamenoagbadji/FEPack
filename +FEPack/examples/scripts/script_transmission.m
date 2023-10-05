@@ -5,22 +5,22 @@ profile OFF
 profile ON
 
 %% Problem-related variables
-omega = 8 + 0.25i;
+omega = 8 + 1i;
 opts.omega = omega;
 period = 1;
 opts.verbose = 0;
-problem_setting = 'B'; % 'A' or 'B'
+problem_setting = 'A'; % 'A' or 'B'
 
 if strcmpi(problem_setting, 'A')
 
   % 2D coefficients
   period_posFun = 1;
-  period_negFun = 0.5 * sqrt(2);
+  period_negFun = 1;%0.5 * sqrt(2);
 
-  mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
-  rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
-  mu2Dneg  = @(x) 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
-  rho2Dneg = @(x) 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
+  mu2Dpos = @(x) ones(size(x, 1), 1); %0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
+  rho2Dpos = @(x) ones(size(x, 1), 1); %0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
+  mu2Dneg  = @(x) ones(size(x, 1), 1); %1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
+  rho2Dneg = @(x) ones(size(x, 1), 1); %1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
 
   % Cut vector
   period_pos = period_posFun;
@@ -75,13 +75,13 @@ infiniteDirection = 2;
 numCellsSemiInfinite_pos = 6;
 numCellsSemiInfinite_neg = 6;
 numCellsInfinite = 5;
-numFloquetPoints = 64;
+numFloquetPoints = 40;
 
 %% Mesh
 pregenerate_mesh = 1;
 struct_mesh = 1;
-numNodes2D = 10;
-numNodes3D = 10;
+numNodes2D = 20;
+numNodes3D = 20;
 
 if pregenerate_mesh
 
