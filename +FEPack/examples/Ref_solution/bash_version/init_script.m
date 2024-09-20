@@ -2,8 +2,8 @@
 import FEPack.*
 
 % profile ON
-opts.omega = 8 + 0.25i;
-problem_setting = 'A'; % 'A' or 'B'
+opts.omega = 20 + 0.25i;
+problem_setting = 'B'; % 'A' or 'B'
 pregenerate_mesh = 1;
 struct_mesh = 1;
 
@@ -46,8 +46,8 @@ G = @(x) 100 * FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
 fprintf('A. Initialisation\n');
 
 % Mesh
-numNodesX = 20;
-numNodesZ = 20;
+numNodesX = 500;
+numNodesZ = 500;
 
 Nz = ceil(numNodesZ * sizeCellZ);
 

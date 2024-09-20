@@ -7,10 +7,10 @@ GREEN='\033[0;92m'
 NC='\033[0m' # No Color
 
 # Path to +FEPack
-chemin='/home/pierre/Documents/Etudes/these/codes/FEPack/+FEPack';
+chemin='/home/uma/amenoagbadji/FEPack/+FEPack';
 
-# Folder for outputs 
-cheminDonnees='/home/pierre/Documents/Etudes/these/codes/FEPack/+FEPack/outputs';
+# MOREY ONLY
+cheminDonnees='/UMA/tmp/amenoagbadji/reference_B_20_025i_500_2023_08_17';
 cd $chemin
 
 # Delete outputs/* if requested
@@ -28,11 +28,11 @@ while getopts ":r" opt; do
 done
 
 # Initialization
-numCellsZ=40; # Total number of cells
+numCellsZ=100; # Total number of cells
 sizeClust=10;  # Number of points per cluster
 (( numClusters=numCellsZ/sizeClust )); # Number of clusters
 numCellsZsave=20;
-sizeClustSave=5;  # Number of points per cluster
+sizeClustSave=2;  # Number of points per cluster
 (( numSaveClusters=numCellsZsave/sizeClustSave )); # Number of clusters
 
 matlab -nosplash -nodesktop -nojvm -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); numCellsZ=$numCellsZ; cheminDonnees='$cheminDonnees'; init_script; quit;"

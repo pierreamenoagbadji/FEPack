@@ -16,18 +16,18 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   opts.omega = 8 + 0.25i;
   period = 1;
   opts.verbose = 0;
-  problem_setting = 'A'; % 'A' or 'B'
+  problem_setting = 'B'; % 'A' or 'B'
 
   if strcmpi(problem_setting, 'A')
 
     % 2D coefficients
     period_posFun = 1;
-    period_negFun = 0.5 * sqrt(2);
+    period_negFun = sqrt(2);
 
-    mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
-    rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
-    mu2Dneg  = @(x) 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
-    rho2Dneg = @(x) 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
+    mu2Dpos  = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
+    rho2Dpos = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
+    mu2Dneg  = @(x) ones(size(x, 1), 1); % 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
+    rho2Dneg = @(x) ones(size(x, 1), 1); % 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
 
     % Cut vector
     period_pos = period_posFun;
@@ -44,7 +44,7 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   else
 
     % 2D coefficients
-    vecperFun = [-0.5*sqrt(2), 1]; % [-sqrt(2), 1];
+    vecperFun = [-sqrt(2), 1]; % [-sqrt(2), 1];
     
     mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2]);
     rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
@@ -73,8 +73,8 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   % eps_G = 1e-8;
   % supp_G = -log(eps_G) / alpha_G;
   % G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
-  G = @(x) 100 * FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
-  G3D = @(x) G([zeros(size(x, 1), 1), x(:, 2)/cutvec(1), zeros(size(x, 1), 1)]);
+  G = @(x) 10 * FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
+  G3D = @(x) G([zeros(size(x, 1), 1), x(:, 2)/cutvec(1), zeros(size(x, 1), 1)]) .* exp(2i*pi*(x(:, 3) - x(:, 2)*cutvec(2)/cutvec(1)));
 
   % (semi-)infinite directions and numbers of cells
   semiInfiniteDirection = 1;
@@ -86,7 +86,7 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   %% Mesh
   pregenerate_mesh = 1;
   struct_mesh = 1;
-  numNodes2D = numNodes;
+  numNodes2D = 50;
   numNodes3D = numNodes;
 
   if pregenerate_mesh
@@ -130,18 +130,18 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
 
   %% Compute FE elementary matrices
   % Positive side
-  mat_gradu_gradv_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), gradu_gradv(mu3Dpos));
-  mat_gradu_vec1v_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), gradu_vec1v(mu3Dpos));
-  mat_vec1u_gradv_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), vec1u_gradv(mu3Dpos));
-  mat_vec1u_vec1v_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), vec1u_vec1v(mu3Dpos));
-  mat_u_v_pos         = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'),        u_v(rho3Dpos));
+  tic; mat_gradu_gradv_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), gradu_gradv(mu3Dpos)); toc;
+  tic; mat_gradu_vec1v_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), gradu_vec1v(mu3Dpos)); toc;
+  tic; mat_vec1u_gradv_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), vec1u_gradv(mu3Dpos)); toc;
+  tic; mat_vec1u_vec1v_pos = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'), vec1u_vec1v(mu3Dpos)); toc;
+  tic; mat_u_v_pos         = FEPack.pdes.Form.intg(mesh3Dpos.domain('volumic'),        u_v(rho3Dpos)); toc;
 
   % Negative side
-  mat_gradu_gradv_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), gradu_gradv(mu3Dneg));
-  mat_gradu_vec1v_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), gradu_vec1v(mu3Dneg));
-  mat_vec1u_gradv_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), vec1u_gradv(mu3Dneg));
-  mat_vec1u_vec1v_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), vec1u_vec1v(mu3Dneg));
-  mat_u_v_neg         = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'),        u_v(rho3Dneg));
+  tic; mat_gradu_gradv_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), gradu_gradv(mu3Dneg)); toc;
+  tic; mat_gradu_vec1v_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), gradu_vec1v(mu3Dneg)); toc;
+  tic; mat_vec1u_gradv_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), vec1u_gradv(mu3Dneg)); toc;
+  tic; mat_vec1u_vec1v_neg = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'), vec1u_vec1v(mu3Dneg)); toc;
+  tic; mat_u_v_neg         = FEPack.pdes.Form.intg(mesh3Dneg.domain('volumic'),        u_v(rho3Dneg)); toc;
 
   %% Boundary conditions
   basis_functions = 'Lagrange';
@@ -155,7 +155,7 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   end
   BCstruct_pos.BCdu = 0.0;
   BCstruct_pos.BCu = 1.0;
-  BCstruct_pos.representation = 'weak evaluation';
+  BCstruct_pos.representation = 'projection';
 
   if strcmpi(basis_functions, 'Lagrange')
     BCstruct_neg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh3Dneg.domain('xmin'));
@@ -167,7 +167,7 @@ function init_script_transmission(numFloquetPoints, numNodes, cheminDonnees)
   end
   BCstruct_neg.BCdu = 0.0;
   BCstruct_neg.BCu = 1.0;
-  BCstruct_neg.representation = 'weak evaluation';
+  BCstruct_neg.representation = 'projection';
 
   % Floquet points
   FloquetPoints = linspace(-pi/period, pi/period, numFloquetPoints);

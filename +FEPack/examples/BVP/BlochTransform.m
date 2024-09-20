@@ -33,7 +33,7 @@ function TFBfun = BlochTransform(x, k, fun, directions, Lcell, Ntrunc, BlochType
   end
 
   if (nargin < 6)
-    Ntrunc = 1000*ones(1, dFB);
+    Ntrunc = 100*ones(1, dFB);
   end
   
   if (nargin < 7)

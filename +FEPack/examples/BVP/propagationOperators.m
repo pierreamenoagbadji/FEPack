@@ -56,8 +56,8 @@ idEigsImN = find(isOnUnitCircle & imag(E) < eps);
 idEigsIm0ReP = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) > eps);
 idEigsIm0ReN = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) < eps);
 
-% figure;
-% % figRD = figure('Position', get(0, 'Screensize'), 'visible', 'off');
+% % figure;
+% figRD = figure('Position', get(0, 'Screensize'), 'visible', 'off');
 % set(groot,'defaultAxesTickLabelInterpreter','latex');
 % set(groot,'defaulttextinterpreter','latex');
 % set(groot,'defaultLegendInterpreter','latex');
@@ -68,9 +68,9 @@ idEigsIm0ReN = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) < eps);
 % xlim([-1.1, 1.1]); ylim([-1.1, 1.1]);
 % title(['Spectre de $\mathcal{P}$; $N = ', num2str(floor(length(E)/2)), '$']);
 % set(gca, 'DataAspectRatio',[1 1 1], 'FontSize', 20);
-% % print(figRD, ['outputs/eigsR', num2str(floor(length(E)/2))], '-dpng');
-% % pause(0.5);
-% % close(figRD);
+% print(figRD, ['outputs/eigsR_', num2str(floor(length(E)/2)), '_', opts.suffix], '-dpng');
+% pause(0.5);
+% close(figRD);
 
 % Preliminary verifications
 strReco = 'Revoir la tolerance ou le nombre de fonctions de base.';

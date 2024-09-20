@@ -5,12 +5,12 @@ import FEPack.*
 opts.omega = 8 + 0.25i;
 problem_setting = 'A'; % 'A' or 'B'
 pregenerate_mesh = 0;
-struct_mesh = 1;
+struct_mesh = 0;
 
-numCells_pos = 6;
-numCells_neg = 6;
-BBzmin = -2.5;
-BBzmax =  2.5;
+numCells_pos = 40;
+numCells_neg = 40;
+BBzmin = -40;
+BBzmax =  40;
 
 if strcmpi(problem_setting, 'A')
 
@@ -43,8 +43,8 @@ G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
 % G = @(x) FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
 
 %% Mesh
-numNodesX = 20;
-numNodesZ = 20;
+numNodesX = 80;
+numNodesZ = 80;
 
 Nz = ceil(numNodesZ * (BBzmax - BBzmin));
 

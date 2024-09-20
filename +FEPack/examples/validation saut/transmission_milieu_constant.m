@@ -2,7 +2,7 @@ import FEPack.*
 clear; clc;
  
 % Transmission entre deux milieux constants
-omega = 8 + 1i;
+omega = 8 + 0.25i;
 rho_pos = 1;
 rho_neg = 1;
 
@@ -29,7 +29,7 @@ DtN_pos = sqrt(xi.^2 - rho_pos * omega^2);
 DtN_neg = sqrt(xi.^2 - rho_neg * omega^2);
 sol_int = FT_G ./ (DtN_pos + DtN_neg);
 
-numNodes = 10;
+numNodes = 40;
 struct_mesh = 1;
 mesh_pos = meshes.MeshRectangle(struct_mesh, [0  1], [0 1], numNodes, numNodes);
 mesh_neg = meshes.MeshRectangle(struct_mesh, [0 -1], [0 1], numNodes, numNodes);
@@ -40,9 +40,9 @@ exp_DtN_neg = exp( DtN_neg * mesh_neg.points(:, 1).' + 1i * xi * mesh_neg.points
 TFsol_pos = sol_int .* exp_DtN_pos / sqrt(2 * pi);
 TFsol_neg = sol_int .* exp_DtN_neg / sqrt(2 * pi);
 
-numCellsXpos = 4;
-numCellsXneg = 4;
-numCellsY = 4;
+numCellsXpos = 5;
+numCellsXneg = 5;
+numCellsY = 5;
 Usol.positive = cell(numCellsXpos, 2 * numCellsY);
 Usol.negative = cell(numCellsXpos, 2 * numCellsY);
 
@@ -61,7 +61,7 @@ for idY = 1:2*numCellsY
 end
 
 %% Plot solution
-figure;
+mafig = figure;
 set(groot,'defaultAxesTickLabelInterpreter','latex');
 set(groot,'defaulttextinterpreter','latex');
 set(groot,'defaultLegendInterpreter','latex');
@@ -86,3 +86,5 @@ for idY = 1:2*numCellsY
   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
   set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
 end
+savefig(mafig, 'solref', 'compact');
+close(mafig);

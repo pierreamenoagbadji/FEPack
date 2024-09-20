@@ -11,10 +11,10 @@ classdef FEPackObject < matlab.mixin.Copyable
     properties (Constant)
 
       % path to folder in cpp-friendly format (space handling, ...)
-      pathCpp = '/home/pierre/Documents/Etudes/these/codes/FEPack';
+      pathCpp = '/home/uma/amenoagbadji/FEPack';
       
       % path to folder in bash-friendly format (space handling, ...)
-      pathBash = '/home/pierre/Documents/Etudes/these/codes/FEPack';
+      pathBash = '/home/uma/amenoagbadji/FEPack';
 
     end
 

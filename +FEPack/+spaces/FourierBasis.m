@@ -16,7 +16,7 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
   methods (Static)
 
-    function val = FourierBasisFun(P, n, FourierIdsX, FourierIdsY, FourierIdsZ)
+    function val = FourierBasisFun(P, n, FourierIdsX, FourierIdsY, FourierIdsZ, periods)
 
       dP = size(P, 2);
       P = [P, zeros(size(P, 1), 3-dP)];
@@ -27,7 +27,9 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
       [Ix, Iy, Iz] = ind2sub([dx, dy, dz], n(:)');
 
-      val = exp(2i*pi*(P(:, 1)*FourierIdsX(Ix) + P(:, 2)*FourierIdsY(Iy) + P(:, 3)*FourierIdsZ(Iz)));
+      val = exp(2i*pi*(P(:, 1)*FourierIdsX(Ix)/periods(1) +...
+                       P(:, 2)*FourierIdsY(Iy)/periods(2) +...
+                       P(:, 3)*FourierIdsZ(Iz)/periods(3)));
 
     end
 
@@ -77,9 +79,13 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
       sp.FourierIds.Y = (-maxId(2):maxId(2)); dy = length(sp.FourierIds.Y);
       sp.FourierIds.Z = (-maxId(3):maxId(3)); dz = length(sp.FourierIds.Z);
 
+      periods = max(domain.mesh.points(domain.IdPoints, :), [], 1) -...
+                min(domain.mesh.points(domain.IdPoints, :), [], 1);
+      periods(periods == 0) = 1;
+      
       sp.numBasis = dx * dy * dz;
       sp.is_interpolated = 0;
-      sp.phis = @(P, n) FEPack.spaces.FourierBasis.FourierBasisFun(P, n, sp.FourierIds.X, sp.FourierIds.Y, sp.FourierIds.Z);
+      sp.phis = @(P, n) FEPack.spaces.FourierBasis.FourierBasisFun(P, n, sp.FourierIds.X, sp.FourierIds.Y, sp.FourierIds.Z, periods);
 
       sp.massmat = speye(sp.numBasis);
 
@@ -98,9 +104,9 @@ classdef FourierBasis < FEPack.spaces.SpectralBasis
 
         for idK = 1:sp.numBasis
 
-          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) sp.phis(x, idK));
+          MM = FEPack.pdes.Form.intg_U_V(sp.domain, @(x) conj(sp.phis(x, idK)));
           mm = MM(sp.domain.IdPoints, sp.domain.IdPoints);
-          sp.projmat(:, idK) = (mm * ones(sp.domain.numPoints, 1))';
+          sp.projmat(idK, :) = (mm * ones(sp.domain.numPoints, 1))';
 
         end
 

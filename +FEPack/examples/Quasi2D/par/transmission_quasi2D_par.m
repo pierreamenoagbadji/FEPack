@@ -1,62 +1,112 @@
-clear; clc;
 %%
+problem_setting  = entrees{1};
+period           = entrees{2};
+numNodes         = entrees{3};
+test_omega       = entrees{4};
+test_case        = entrees{5};
+test_per         = entrees{6};
+test_G           = entrees{7};
+compute_3D_sol   = entrees{8};
+compare_w_refsol = entrees{9};
+delete_sol       = entrees{10};
+suffix           = entrees{11};
+  
 import FEPack.*
 profile OFF
-% profile ON
+
+if (length(test_per) == 1)
+  test_per = [1, test_per];
+end
+
+% opts.nomdossier = ['last_simus/solution_', problem_setting, '_', test_case, '_', test_omega, '_per', num2str(test_per), '_', test_G, suffix, '/']; % /!\ Pas oublier le / à la fin
+opts.nomdossier = ['/UMA/tmp/amenoagbadji/solution_', problem_setting, '_', test_case, '_', test_omega, '_per', num2str(test_per(1)), num2str(test_per(2)), '_', test_G, suffix, '/']; % /!\ Pas oublier le / à la fin
+nomdossier = opts.nomdossier;
+
+system(['mkdir ', nomdossier]);
+
+if ~(compare_w_refsol)
+  warning(['Fichiers dans ', nomdossier, ' supprimés.']);
+  system(['rm ', nomdossier, '*']);
+end
 
 %% Problem-related variables
-opts.omega = 8 + 0.5i;
-opts.period = 1;
+opts.period = period;
 opts.verbose = 0;
-opts.nomdossier = 'outputs/'; % /!\ Pas oublier le / à la fin
-% opts.nomdossier = '/UMA/tmp/amenoagbadji/solution_A_homogeneous/'; % /!\ Pas oublier le / à la fin
-nomdossier = opts.nomdossier;
-problem_setting = 'A'; % 'A' or 'B'
 
-warning(['Fichiers dans ', nomdossier, ' supprimés.']);
-system(['rm ', nomdossier, '*']);
+if strcmpi(test_omega, 'omega1')
+  opts.omega = 8 + 0.25i;
+elseif strcmpi(test_omega, 'omega2')
+  opts.omega = 20 + 0.25i;
+elseif strcmpi(test_omega, 'omega3')
+  opts.omega = 20 + 0.05i;
+elseif strcmpi(test_omega, 'omega4')
+  opts.omega = 1 + 0.25i;
+end
+
+mu2Dpos =  @(x) ones(size(x, 1), 1);
+mu2Dneg  = @(x) ones(size(x, 1), 1);
 
 if strcmpi(problem_setting, 'A')
 
   % 2D coefficients
-  period_posFun = 1;%/(0.5*sqrt(2));
-  period_negFun = 0.5*sqrt(2);
+  period_posFun = 1;
 
-  mu2Dpos =  @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
-  rho2Dpos = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
-  mu2Dneg  = @(x) ones(size(x, 1), 1); % 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
-  rho2Dneg = @(x) ones(size(x, 1), 1); % 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
+  if strcmpi(test_case, 'rational')
+    period_negFun = 1;
+  else
+    period_negFun = sqrt(2);
+  end
+
+  % echelle = 0.1;
+  if strcmpi(test_case, 'constant')
+    rho2Dpos = @(x) ones(size(x, 1), 1);
+    rho2Dneg = @(x) 2 * ones(size(x, 1), 1);
+  else
+    rho2DposCell = @(x) 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.4, 0.4]);
+    rho2DnegCell = @(x) 0.5 + perCutoffCuboid(x, [1; 0], [0; period_negFun], [0.5, 0.5], [-0.25, 0.25], [-0.25, 0.25], 0.5, 1);
+    
+    rho2Dpos = @(x) rho2DposCell(x / opts.period);
+    rho2Dneg = @(x) rho2DnegCell(x / opts.period);
+  end
 
   % Cut vector
-  period_pos = period_posFun;
-  period_neg = period_negFun;
+  test_per
+  period_pos = test_per(1) * period_posFun;
+  period_neg = test_per(2) * period_negFun;
 
-  opts.cutvec = [period_pos; period_neg];
+  opts.cutvec = [1/period_pos; 1/period_neg];
 
   % 3D coefficients
-  mu3Dpos = @(x) mu2Dpos([x(:, 1), period_pos * x(:, 2)]);
+  mu3Dpos  = @(x) mu2Dpos( [x(:, 1), period_pos * x(:, 2)]);
+  mu3Dneg  = @(x) mu2Dneg( [x(:, 1), period_neg * x(:, 3)]);
   rho3Dpos = @(x) rho2Dpos([x(:, 1), period_pos * x(:, 2)]);
-  mu3Dneg = @(x) mu2Dneg([x(:, 1), period_neg * x(:, 3)]);
   rho3Dneg = @(x) rho2Dneg([x(:, 1), period_neg * x(:, 3)]);
   
 else
 
   % 2D coefficients
-  vecperFun = [-1, 1]; % [-sqrt(2), 1];
+  if strcmpi(test_case, 'rational')
+    vecperFun = [1, 1];
+  else
+    vecperFun = [cos(3*pi/5), sin(3*pi/5)];
+  end
   
-  mu2Dpos = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCircle(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2]);
-  rho2Dpos = @(x) ones(size(x, 1), 1); % 0.5 + perCutoffCuboid(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
-  mu2Dneg  = @(x) ones(size(x, 1), 1);
-  rho2Dneg = @(x) ones(size(x, 1), 1);
+  if strcmpi(test_case, 'constant')
+    rho2Dpos = @(x) ones(size(x, 1), 1);
+    rho2Dneg = @(x) 2 * ones(size(x, 1), 1);
+  else
+    rho2Dpos = @(x) 0.5 + perCutoffCircle(x/opts.period, [1; 0], vecperFun, [0.5, 0.5], [-0.4, 0.4]);
+    rho2Dneg = @(x) ones(size(x, 1), 1);
+  end
 
   % Cut vector
-  vecper = vecperFun;
+  vecper = test_per(2) * [-vecperFun(1), vecperFun(2)];
   opts.cutvec = [1/vecper(2); -vecper(1)/vecper(2)];
   
   % 3D coefficients
   fun3D = @(fun2D, x) fun2D([x(:, 1) + x(:, 3) + x(:, 2) * vecper(1), x(:, 2) * vecper(2)]);
-  mu3Dpos = @(x) fun3D(mu2Dpos, x);
-  mu3Dneg = @(x) fun3D(mu2Dneg, x);
+  mu3Dpos  = @(x) fun3D(mu2Dpos,  x);
+  mu3Dneg  = @(x) fun3D(mu2Dneg,  x);
   rho3Dpos = @(x) fun3D(rho2Dpos, x);
   rho3Dneg = @(x) fun3D(rho2Dneg, x);
 
@@ -66,78 +116,106 @@ end
 opts.cutmat = [[1; 0; 0], [0; opts.cutvec]];
 
 % Jump data
-% alpha_G = 3;
-% eps_G = 1e-8;
-% supp_G = -log(eps_G) / alpha_G;
-% G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
 G = @(x) FEPack.tools.cutoff(x, -0.5, 0.5);
-G3D = @(x) G(x(:, 1)/opts.cutvec(1));
+
+if strcmpi(test_G, 'G1')
+  G3D = @(x) G(x(:, 1)/opts.cutvec(1));
+else
+  G3D = @(x) G(x(:, 1)/opts.cutvec(1)) .* exp(2i*pi*(x(:, 2) - x(:, 1)*opts.cutvec(2)/opts.cutvec(1)));
+end
 
 % Numbers of cells
-numCellsSemiInfinite_pos = 6;
-numCellsSemiInfinite_neg = 6;
-opts.numCellsInfinite = 6;
-opts.numFloquetPoints = 20;
-opts.FloquetPoints = linspace(-pi/opts.period, pi/opts.period, opts.numFloquetPoints);
+numCellsSemiInfinite_pos = ceil(6/opts.period);
+numCellsSemiInfinite_neg = ceil(6/opts.period);
+opts.numCellsInfinite = ceil(6*opts.cutvec(1)/opts.period);
+opts.numFloquetPoints = ceil(60/opts.period);
+opts.numFloquetPoints = 2*ceil(opts.numFloquetPoints/2);
+opts.numFloquetPoints = max(opts.numFloquetPoints, ceil(opts.numFloquetPoints/opts.cutvec(1)));
+
+if (opts.numFloquetPoints == 1)
+  opts.FloquetPoints = 0;
+else
+  opts.FloquetPoints = linspace(-pi/period, pi/period, opts.numFloquetPoints+1);
+  opts.FloquetPoints(end) = [];
+end
 
 %% Meshes
-struct_mesh = 0;
+struct_mesh = 1;
+numNodesX = numNodes;
+numNodesY = numNodes;
+numNodesZ = numNodes;
+opts.ratio_quad = 8;
 
-numNodesX = 8;
-numNodesY = 8;
-numNodesZ = 8;
-ratio_s = 1; % more nodes for the transverse direction
+meshXYpos = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period/opts.cutvec(1)], numNodesX, max(numNodesY, ceil(numNodesY/opts.cutvec(1))));
+meshXYneg = FEPack.meshes.MeshRectangle(struct_mesh, [0 -opts.period], [0  opts.period/opts.cutvec(1)], numNodesX, max(numNodesY, ceil(numNodesY/opts.cutvec(1))));
+meshYZ    = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period], numNodesY, numNodesZ);
+meshLineZ = FEPack.meshes.MeshSegment('uniform', 0, opts.period, numNodesZ);
 
-meshXYpos = meshes.MeshRectangle(struct_mesh, [0  1], [0 1/opts.cutvec(1)], numNodesX, ceil(numNodesY/opts.cutvec(1)));
-meshXYneg = meshes.MeshRectangle(struct_mesh, [0 -1], [0 1/opts.cutvec(1)], numNodesX, ceil(numNodesY/opts.cutvec(1)));
-meshZXpos = meshes.MeshRectangle(struct_mesh, [0 1], [0  1], numNodesZ, 8*numNodesX);
-meshZXneg = meshes.MeshRectangle(struct_mesh, [0 1], [0 -1], numNodesZ, 8*numNodesX);
-meshYZ = meshes.MeshRectangle(struct_mesh, [0 1], [0 1], numNodesY, numNodesZ);
-meshLineZ = meshes.MeshSegment('uniform', 0, 1, numNodesZ * ratio_s);
+% %% Plot the coefficients
+% mafig = figure;
+% set(groot,'defaultAxesTickLabelInterpreter','latex');
+% set(groot,'defaulttextinterpreter','latex');
+% set(groot,'defaultLegendInterpreter','latex');
+
+% for idY = 1:2*opts.numCellsInfinite
+%   for idX = 1:numCellsSemiInfinite_pos
+%     X = meshXYpos.points(:, 1) + (idX - 1) * opts.period;
+%     Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+%     trisurf(meshXYpos.triangles, X, Y, rho2Dpos([X, Y]));
+%     hold on;
+%     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   end
+% end
+
+% for idY = 1:2*opts.numCellsInfinite
+%   for idX = 1:numCellsSemiInfinite_neg
+%     X = meshXYneg.points(:, 1) - (idX - 1) * opts.period;
+%     Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+%     trisurf(meshXYneg.triangles, X, Y, rho2Dneg([X, Y]));
+%     hold on;
+%     view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%     set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   end
+% end
+
+% savefig(mafig, [nomdossier, 'fig_coeff_2D'], 'compact');
+% close(mafig);
 
 %% Basis functions and boundary conditions
 % Positive side
 basis_functions_X = 'Fourier';
-basis_functions_Y = 'Fourier';
+basis_functions_S = 'Fourier';
+
 if strcmpi(basis_functions_X, 'Lagrange')
   BCstruct.pos.spBX = FEPack.spaces.PeriodicLagrangeBasis(meshYZ.domain('volumic')); % X = cst
 else
-  BCstruct.pos.spBX = FEPack.spaces.FourierBasis(meshYZ.domain('volumic'), [floor(numNodesY/4), floor(numNodesZ/4)]);
+  nBY = max(1, floor(numNodesY/4));
+  nBZ = max(1, floor(numNodesZ/4));
+  BCstruct.pos.spBX = FEPack.spaces.FourierBasis(meshYZ.domain('volumic'), [nBY, nBZ]);
 end
 
-if strcmpi(basis_functions_Y, 'Lagrange')
-  % Particular Lagrange for basis functons on Y = cst
-  ecs_fun = @(u, dom) ((((u|dom.mesh.domain('xmin')) - (u|dom.mesh.domain('xmax'))) == 0.0) &...      % Periodic on Z
-                        ((u|dom.mesh.domain('ymin')) == 0.0) & ((u|dom.mesh.domain('ymax')) == 0.0)); % Dirichlet on X
-  
-  BCstruct.pos.spBY = FEPack.spaces.EssentialBCLagrangeBasis(meshZXpos.domain('volumic'), ecs_fun); % Y = cst
+if strcmpi(basis_functions_S, 'Lagrange')
+  BCstruct.pos.spBS = FEPack.spaces.PeriodicLagrangeBasis(meshLineZ.domain('volumic')); % S/Z line
 else
-  BCstruct.pos.spBY = FEPack.spaces.FourierBasis(meshZXpos.domain('volumic'), [floor(numNodesZ/4), floor(numNodesX/4)]); % Y = cst
+  nBS = max(1, floor(numNodesZ/4));
+  BCstruct.pos.spBS = FEPack.spaces.FourierBasis(meshLineZ.domain('volumic'), nBS);
 end
 
 % Other parameters
 BCstruct.pos.BCdu = 0.0;
 BCstruct.pos.BCu = 1.0;
-% BCstruct.pos.representation = 'projection';
 
 % Negative side
 BCstruct.neg = BCstruct.pos;
-
-if strcmpi(basis_functions_Y, 'Lagrange')
-  % Particular Lagrange for basis functons on Y = cst
-  ecs_fun = @(u, dom) ((((u|dom.mesh.domain('xmin')) - (u|dom.mesh.domain('xmax'))) == 0.0) &...      % Periodic on Z
-                        ((u|dom.mesh.domain('ymin')) == 0.0) & ((u|dom.mesh.domain('ymax')) == 0.0)); % Dirichlet on X
-
-  BCstruct.neg.spBY = FEPack.spaces.EssentialBCLagrangeBasis(meshZXneg.domain('volumic'), ecs_fun); % Y = cst
-else
-  BCstruct.neg.spBY = FEPack.spaces.FourierBasis(meshZXneg.domain('volumic'), [floor(numNodesZ/4), floor(numNodesX/4)]); % Y = cst
-end
 
 %% Compute DtN operators
 opts.suffix = 'pos';
 quasi2DHalfGuideDirichlet_par(+1, meshXYpos, meshLineZ, mu3Dpos, rho3Dpos, BCstruct.pos, opts);
 system(['rm ', nomdossier, 'FEmat_*']);
-%%
+%
 opts.suffix = 'neg';
 quasi2DHalfGuideDirichlet_par(-1, meshXYneg, meshLineZ, mu3Dneg, rho3Dneg, BCstruct.neg, opts);
 system(['rm ', nomdossier, 'FEmat_*']);
@@ -162,14 +240,13 @@ parfor idFB = 1:numFloquetPoints
   Lambda_neg = solguideNeg.Lambda;
 
   % Rhs
-  jumpData_FB = @(x) BlochTransform(x, FloquetVar, G3D, 1, period, 100);
-  GG = spBX_FE_to_spectral * jumpData_FB(pointsYZ);% ([zeros(size(pointsYZ, 1), 1), pointsYZ(:, 1:2)]);
-    
+  jumpData_FB = @(x) BlochTransform(x, FloquetVar, G3D, 1, period, 1000);
+  GG = spBX_FE_to_spectral * jumpData_FB(pointsYZ);
+
   % The minus sign comes from the definition of the Lambda
   soltrace = [];
   soltrace.vec = -(Lambda_pos + Lambda_neg) \ GG;
-  %soltrace.vec = GG;
-  
+
   % Save the trace of the solution
   parsave([nomdossier, 'sol_trace_Floquet_', num2str(idFB)], soltrace, true);
 end
@@ -183,48 +260,573 @@ opts.suffix = 'neg';
 opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
 construct_solution_par(-1, meshXYneg, meshLineZ, BCstruct.neg, opts);
 
-% Plot solution
-mafig = figure;
-set(groot,'defaultAxesTickLabelInterpreter','latex');
-set(groot,'defaulttextinterpreter','latex');
-set(groot,'defaultLegendInterpreter','latex');
+% %% Plot solution
+if strcmpi(test_case, 'homogeneisation')
+  close all;
+  numCellsInfinite = opts.numCellsInfinite;
 
-for idY = 1:2*opts.numCellsInfinite
-  sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
+  % Compute limit solution
+  % //////////////////////
+  xibound = 500;
+  xi = linspace(-xibound, xibound, floor(10 * (2 * xibound))).';
+  Delta_xi = xi(2) - xi(1);
 
-  for idX = 1:numCellsSemiInfinite_pos
-    X = meshXYpos.points(:, 1) + (idX - 1);
-    Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) / opts.cutvec(1);
+  % Fourier transform of interface data
+  ypts = linspace(-0.5, 0.5, ceil(10*xibound)).';
+  Delta_y = ypts(2) - ypts(1);
+  FT_G = Delta_y * exp(-1i * xi * ypts.') * G(ypts);
+  
+  % //////////////////// %
+  % Configuration A only %
+  % //////////////////// %
+  rho_eff_pos = integral2(@(X, Y) reshape(rho2DposCell([X(:), Y(:)]), size(X)), 0, 1, 0, period_posFun) / period_posFun;
+  rho_eff_neg = integral2(@(X, Y) reshape(rho2DnegCell([X(:), Y(:)]), size(X)), 0, 1, 0, period_negFun) / period_negFun;
+  %
+  coe_pos = sqrt(xi.^2 - rho_eff_pos * opts.omega^2);
+  coe_neg = sqrt(xi.^2 - rho_eff_neg * opts.omega^2);
+  %
+  solrefPos = @(X, Y) (Delta_xi/(2*pi)) * exp(-X * coe_pos.' + 1i * Y * xi.') * (FT_G ./ (coe_pos + coe_neg));
+  solrefNeg = @(X, Y) (Delta_xi/(2*pi)) * exp(+X * coe_neg.' + 1i * Y * xi.') * (FT_G ./ (coe_pos + coe_neg));
+  %
+  %
+  %
+  mafig = figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
 
-    trisurf(meshXYpos.triangles, X, Y, real(sol.Usol(:, idX)));
-    hold on;
-    view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-    set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
+
+    for idX = 1:numCellsSemiInfinite_pos
+      X = meshXYpos.points(:, 1) + (idX - 1) * opts.period;
+      Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+      trisurf(meshXYpos.triangles, X, Y, real(sol.Usol(:, idX)));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
   end
-end
-%
-%
-for idY = 1:2*opts.numCellsInfinite
-  sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
+  %
+  %
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
 
-  for idX = 1:numCellsSemiInfinite_neg
-    X = meshXYneg.points(:, 1) - (idX - 1);
-    Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) / opts.cutvec(1);
+    for idX = 1:numCellsSemiInfinite_neg
+      X = meshXYneg.points(:, 1) - (idX - 1) * opts.period;
+      Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
 
-    trisurf(meshXYneg.triangles, X, Y, real(sol.Usol(:, idX)));
-    hold on;
-    view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-    set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+      trisurf(meshXYneg.triangles, X, Y, real(sol.Usol(:, idX)));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
   end
+
+  xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
+  ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
+  savefig(mafig, [nomdossier, 'fig_solution_2D'], 'compact');
+  close(mafig);
+
+
+  mafig = figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
+
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
+
+    for idX = 1:numCellsSemiInfinite_pos
+      X = meshXYpos.points(:, 1) + (idX - 1) * opts.period;
+      Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+      solErreur = sol.Usol(:, idX) - solrefPos(X, Y);
+      trisurf(meshXYpos.triangles, X, Y, real(solErreur));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+  %
+  %
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
+
+    for idX = 1:numCellsSemiInfinite_neg
+      X = meshXYneg.points(:, 1) - (idX - 1) * opts.period;
+      Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+      solErreur = sol.Usol(:, idX) - solrefNeg(X, Y);
+      trisurf(meshXYneg.triangles, X, Y, real(solErreur));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+
+  xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
+  ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
+  savefig(mafig, [nomdossier, 'fig_erreur_2D'], 'compact');
+  close(mafig);
+
+elseif (strcmpi(test_case, 'constant') & compare_w_refsol)
+  % Compute reference solution
+  % //////////////////////
+  xibound = 500;
+  xi = linspace(-xibound, xibound, floor(10 * (2 * xibound))).';
+  Delta_xi = xi(2) - xi(1);
+
+  % Fourier transform of interface data
+  ypts = linspace(-0.5, 0.5, ceil(10*xibound)).';
+  Delta_y = ypts(2) - ypts(1);
+  FT_G = Delta_y * exp(-1i * xi * ypts.') * G(ypts);
+
+  % //////////////////// %
+  % Configuration A only %
+  % //////////////////// %
+  rho_const_pos = rho2Dpos([0, 0]);
+  rho_const_neg = rho2Dneg([0, 0]);
+  %
+  coe_pos = sqrt(xi.^2 - rho_const_pos * opts.omega^2);
+  coe_neg = sqrt(xi.^2 - rho_const_neg * opts.omega^2);
+  %
+  solrefPos = @(X, Y) (Delta_xi/(2*pi)) * exp(-X * coe_pos.' + 1i * Y * xi.') * (FT_G ./ (coe_pos + coe_neg));
+  solrefNeg = @(X, Y) (Delta_xi/(2*pi)) * exp(+X * coe_neg.' + 1i * Y * xi.') * (FT_G ./ (coe_pos + coe_neg));
+
+  u = FEPack.pdes.PDEObject; v = dual(u);
+
+  mat_gradu_gradv_pos = FEPack.pdes.Form.intg(meshXYpos.domain('volumic'), grad2(u) * grad2(v));
+  mat_u_v_pos         = FEPack.pdes.Form.intg(meshXYpos.domain('volumic'), u * v);
+  mat_gradu_gradv_neg = FEPack.pdes.Form.intg(meshXYneg.domain('volumic'), grad2(u) * grad2(v));
+  mat_u_v_neg         = FEPack.pdes.Form.intg(meshXYneg.domain('volumic'), u * v);
+  
+  mafig = figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
+
+  ecartL2pos = 0; ecartH1pos = 0;
+  normUL2pos = 0; normUH1pos = 0;
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
+    for idX = 1:numCellsSemiInfinite_pos
+      X = meshXYpos.points(:, 1) + (idX - 1) * opts.period;
+      Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+      ecart = sol.Usol(:, idX) - solrefPos(X, Y);
+
+      ecartL2pos = ecartL2pos + (ecart' * mat_u_v_pos * ecart);
+      normUL2pos = normUL2pos + (solrefPos(X, Y)' * mat_u_v_pos * solrefPos(X, Y));
+
+      ecartH1pos = ecartH1pos + (ecart' * mat_gradu_gradv_pos * ecart);
+      normUH1pos = normUH1pos + (solrefPos(X, Y)' * mat_gradu_gradv_pos * solrefPos(X, Y));
+
+      trisurf(meshXYpos.triangles, X, Y, real(ecart));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+  fid = fopen([nomdossier, 'erreurs_pos.txt'], 'a+');
+  fprintf(fid, '%d\t%0.5d\t%0.5d\t%0.5d\t%0.5d\n', numNodesX, ecartL2pos, normUL2pos, ecartH1pos, normUH1pos);
+  fclose(fid);
+
+  ecartL2neg = 0; ecartH1neg = 0;
+  normUL2neg = 0; normUH1neg = 0;
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
+    for idX = 1:numCellsSemiInfinite_neg
+      X = meshXYneg.points(:, 1) - (idX - 1) * opts.period;
+      Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+      ecart = sol.Usol(:, idX) - solrefNeg(X, Y);
+
+      ecartL2neg = ecartL2neg + (ecart' * mat_u_v_neg * ecart);
+      normUL2neg = normUL2neg + (solrefNeg(X, Y)' * mat_u_v_neg * solrefNeg(X, Y));
+
+      ecartH1neg = ecartH1neg + (ecart' * mat_gradu_gradv_neg * ecart);
+      normUH1neg = normUH1neg + (solrefNeg(X, Y)' * mat_gradu_gradv_neg * solrefNeg(X, Y));
+
+      trisurf(meshXYneg.triangles, X, Y, real(ecart));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+  fid = fopen([nomdossier, 'erreurs_neg.txt'], 'a+');
+  fprintf(fid, '%d\t%0.5d\t%0.5d\t%0.5d\t%0.5d\n', numNodesX, ecartL2neg, normUL2neg, ecartH1neg, normUH1neg);
+  fclose(fid);
+
+  xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
+  ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
+  % caxis([-0.25, 0.25]);
+  savefig(mafig, [nomdossier, 'ecart_solution_2D'], 'compact');
+
+else
+  mafig = figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
+
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_pos_Y_', num2str(idY)]);
+
+    for idX = 1:numCellsSemiInfinite_pos
+      X = meshXYpos.points(:, 1) + (idX - 1) * opts.period;
+      Y = meshXYpos.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+      trisurf(meshXYpos.triangles, X, Y, real(sol.Usol(:, idX)));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+  %
+  %
+  for idY = 1:2*opts.numCellsInfinite
+    sol = load([nomdossier, 'solution_neg_Y_', num2str(idY)]);
+
+    for idX = 1:numCellsSemiInfinite_neg
+      X = meshXYneg.points(:, 1) - (idX - 1) * opts.period;
+      Y = meshXYneg.points(:, 2) + (idY - opts.numCellsInfinite - 1) * opts.period / opts.cutvec(1);
+
+      trisurf(meshXYneg.triangles, X, Y, real(sol.Usol(:, idX)));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+    end
+  end
+
+  xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
+  ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
+  % caxis([-0.25, 0.25]);
+  savefig(mafig, [nomdossier, 'fig_solution_2D'], 'compact');
 end
 
-xlim([-numCellsSemiInfinite_neg, numCellsSemiInfinite_pos]);
-ylim([-opts.numCellsInfinite/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
-% ylim([1/opts.cutvec(1), opts.numCellsInfinite/opts.cutvec(1)]);
-% caxis([-0.25, 0.25]);
+%% Plot 3D solution
+if (compute_3D_sol)
+  opts.compute3Dsolution = compute_3D_sol;
+  numCellsSemiInfinite_pos = ceil(2/opts.period);
+  numCellsSemiInfinite_neg = ceil(2/opts.period);
+  opts.numCellsInfinite = 2;
+  
+  opts.suffix = 'pos';
+  construct_solution_3D_par_2(true, meshXYpos, meshLineZ, BCstruct.pos, opts);
 
-% system(['rm ', nomdossier, 'half_guide_*']);
-% system(['rm ', nomdossier, 'local_cell_sol_*']);
-% system(['rm ', nomdossier, 'sol_trace_Floquet_*']);
+  opts.suffix = 'neg';
+  construct_solution_3D_par_2(true, meshXYneg, meshLineZ, BCstruct.neg, opts);
 
-savefig(mafig, [nomdossier, 'solution'], 'compact');
+  %% X constant
+  opts.sol3D.points = [ones(meshYZ.numPoints, 1), meshYZ.points];
+  opts.sol3D.idCellsX = numCellsSemiInfinite_pos-1;
+  opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+  opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+
+  opts.suffix = 'pos';
+  construct_solution_3D_par_2(false, meshXYpos, meshLineZ, BCstruct.pos, opts);
+
+  for idX = 1:length(opts.sol3D.idCellsX)     
+    mafig3D_X = figure;
+    set(groot,'defaultAxesTickLabelInterpreter','latex');
+    set(groot,'defaulttextinterpreter','latex');
+    set(groot,'defaultLegendInterpreter','latex');
+    
+    for idY = 1:length(opts.sol3D.idCellsY)
+      sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+      Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+      Z = opts.sol3D.points(:, 3);
+
+      trisurf(meshYZ.triangles, Y, Z, real(sol.Usol));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+    end
+    
+    savefig(mafig3D_X, [nomdossier, 'fig_solution_3D_pos_X_', int2str(idX)]);
+    close(mafig3D_X);
+  end
+
+  %% Y constant
+  % ////////// %
+  % X positive %
+  % ////////// %
+  meshZX3Dpos = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period], numNodesZ, numNodesX);
+  opts.sol3D.points = [meshZX3Dpos.points(:, 2), zeros(meshZX3Dpos.numPoints, 1), meshZX3Dpos.points(:, 1)];
+  opts.sol3D.idCellsX = (0:numCellsSemiInfinite_pos-1);
+  opts.sol3D.idCellsY = -opts.numCellsInfinite;
+  opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+  opts.suffix = 'pos';
+  construct_solution_3D_par_2(false, meshXYpos, meshLineZ, BCstruct.pos, opts);
+  
+  mafig3D_Y = cell(length(opts.sol3D.idCellsY));
+  for idY = 1:length(opts.sol3D.idCellsY)
+    mafig3D_Y{idY} = figure;
+    set(groot,'defaultAxesTickLabelInterpreter','latex');
+    set(groot,'defaulttextinterpreter','latex');
+    set(groot,'defaultLegendInterpreter','latex');
+    
+    for idX = 1:length(opts.sol3D.idCellsX)
+      sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+      X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+      Z = opts.sol3D.points(:, 3);
+
+      trisurf(meshYZ.triangles, Z, X, real(sol.Usol));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+    end
+  end
+    
+  % ////////// %
+  % X negative %
+  % ////////// %
+  meshZX3Dneg = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0 -opts.period], numNodesZ, numNodesX);
+  opts.sol3D.points = [meshZX3Dneg.points(:, 2), zeros(meshZX3Dneg.numPoints, 1), meshZX3Dneg.points(:, 1)];
+  opts.sol3D.idCellsX = (-numCellsSemiInfinite_neg+1:0);
+  opts.sol3D.idCellsY = -opts.numCellsInfinite;
+  opts.suffix = 'neg';
+  opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
+  construct_solution_3D_par_2(false, meshXYneg, meshLineZ, BCstruct.neg, opts);
+
+  for idY = 1:length(opts.sol3D.idCellsY)
+    figure(mafig3D_Y{idY});
+
+    for idX = 1:length(opts.sol3D.idCellsX)
+      sol = load([nomdossier, 'solution_3D_neg_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+      X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+      Z = opts.sol3D.points(:, 3);
+
+      trisurf(meshYZ.triangles, Z, X, real(sol.Usol));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+    end
+    
+    savefig(mafig3D_Y{idY}, [nomdossier, 'fig_solution_3D_Y_', int2str(idY)]);
+    close(mafig3D_Y{idY});
+  end
+
+  
+  %% Z constant = 1, X positive
+  mafig3D_Z = figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
+  
+  % ////////// %
+  % X positive %
+  % ////////// %
+  meshXY3Dpos = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period], numNodesX, numNodesY);
+  opts.sol3D.points = [meshXY3Dpos.points(:, 1), meshXY3Dpos.points(:, 2), ones(meshXY3Dpos.numPoints, 1)];
+  opts.sol3D.idCellsX = (0:numCellsSemiInfinite_pos-1);
+  opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+  opts.suffix = 'pos';
+  opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+  construct_solution_3D_par_2(false, meshXYpos, meshLineZ, BCstruct.pos, opts);
+
+  for idY = 1:length(opts.sol3D.idCellsY)
+    for idX = 1:length(opts.sol3D.idCellsX)
+      sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+      X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+      Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+
+      trisurf(meshYZ.triangles, X, Y, real(sol.Usol));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+    end
+  end
+
+  % ////////// %
+  % X negative %
+  % ////////// %
+  meshXY3Dneg = FEPack.meshes.MeshRectangle(struct_mesh, [0 -opts.period], [0  opts.period], numNodesX, numNodesY);
+  opts.sol3D.points = [meshXY3Dneg.points(:, 1), meshXY3Dneg.points(:, 2), ones(meshXY3Dneg.numPoints, 1)];
+  opts.sol3D.idCellsX = (-numCellsSemiInfinite_neg+1:0);
+  opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+  opts.suffix = 'neg';
+  opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
+  construct_solution_3D_par_2(false, meshXYneg, meshLineZ, BCstruct.neg, opts);
+
+  for idY = 1:length(opts.sol3D.idCellsY)
+    for idX = 1:length(opts.sol3D.idCellsX)
+      sol = load([nomdossier, 'solution_3D_neg_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+      X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+      Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+
+      trisurf(meshYZ.triangles, X, Y, real(sol.Usol));
+      hold on;
+      view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+      set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+    end
+  end
+  savefig(mafig3D_Z, [nomdossier, 'fig_solution_3D_Z']);
+  close(mafig3D_Z);
+
+  system(['rm ', nomdossier, 'solution_3D_*']);
+end
+
+% if (compute_3D_sol)
+%   opts.compute3Dsolution = compute_3D_sol;
+  
+%   %% X constant
+%   opts.sol3D.points = [ones(meshYZ.numPoints, 1), meshYZ.points];
+%   opts.sol3D.idCellsX = numCellsSemiInfinite_pos-1;
+%   opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+%   opts.suffix = 'pos';
+%   opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+
+%   construct_solution_3D_par(+1, meshXYpos, meshLineZ, BCstruct.pos, opts);
+
+%   for idX = 1:length(opts.sol3D.idCellsX)     
+%     mafig3D_X = figure;
+%     set(groot,'defaultAxesTickLabelInterpreter','latex');
+%     set(groot,'defaulttextinterpreter','latex');
+%     set(groot,'defaultLegendInterpreter','latex');
+    
+%     for idY = 1:length(opts.sol3D.idCellsY)
+%       sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+%       Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+%       Z = opts.sol3D.points(:, 3);
+
+%       trisurf(meshYZ.triangles, Y, Z, real(sol.Usol));
+%       hold on;
+%       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%       set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+%     end
+    
+%     savefig(mafig3D_X, [nomdossier, 'fig_solution_3D_pos_X_', int2str(idX)]);
+%     close(mafig3D_X);
+%   end
+
+%   %% Y constant
+%   opts.sol3D.idCellsY = -opts.numCellsInfinite;
+%   for idY = 1:length(opts.sol3D.idCellsY)     
+%     % ////////// %
+%     % X positive %
+%     % ////////// %
+%     meshZX3Dpos = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period], numNodesZ, numNodesX);
+%     opts.sol3D.points = [meshZX3Dpos.points(:, 2), zeros(meshZX3Dpos.numPoints, 1), meshZX3Dpos.points(:, 1)];
+%     opts.sol3D.idCellsX = (0:numCellsSemiInfinite_pos-1);
+%     opts.suffix = 'pos';
+%     opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+%     construct_solution_3D_par(+1, meshXYpos, meshLineZ, BCstruct.pos, opts);
+
+%     mafig3D_Y = figure;
+%     set(groot,'defaultAxesTickLabelInterpreter','latex');
+%     set(groot,'defaulttextinterpreter','latex');
+%     set(groot,'defaultLegendInterpreter','latex');
+    
+%     for idX = 1:length(opts.sol3D.idCellsX)
+%       sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+%       X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+%       Z = opts.sol3D.points(:, 3);
+
+%       trisurf(meshYZ.triangles, Z, X, real(sol.Usol));
+%       hold on;
+%       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%       set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+%     end
+    
+%     % ////////// %
+%     % X negative %
+%     % ////////// %
+%     meshZX3Dneg = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0 -opts.period], numNodesZ, numNodesX);
+%     opts.sol3D.points = [meshZX3Dneg.points(:, 2), zeros(meshZX3Dneg.numPoints, 1), meshZX3Dneg.points(:, 1)];
+%     opts.sol3D.idCellsX = (-numCellsSemiInfinite_neg+1:0);
+%     opts.suffix = 'neg';
+%     opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
+%     construct_solution_3D_par(+1, meshXYneg, meshLineZ, BCstruct.neg, opts);
+
+%     for idX = 1:length(opts.sol3D.idCellsX)
+%       sol = load([nomdossier, 'solution_3D_neg_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+%       X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+%       Z = opts.sol3D.points(:, 3);
+
+%       trisurf(meshYZ.triangles, Z, X, real(sol.Usol));
+%       hold on;
+%       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%       set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+%     end
+    
+%     savefig(mafig3D_Y, [nomdossier, 'fig_solution_3D_Y_', int2str(idY)]);
+%     close(mafig3D_Y);
+%   end
+
+  
+%   %% Z constant = 1, X positive
+%   mafig3D_Z = figure;
+%   set(groot,'defaultAxesTickLabelInterpreter','latex');
+%   set(groot,'defaulttextinterpreter','latex');
+%   set(groot,'defaultLegendInterpreter','latex');
+  
+%   % ////////// %
+%   % X positive %
+%   % ////////// %
+%   meshXY3Dpos = FEPack.meshes.MeshRectangle(struct_mesh, [0  opts.period], [0  opts.period], numNodesX, numNodesY);
+%   opts.sol3D.points = [meshXY3Dpos.points(:, 1), meshXY3Dpos.points(:, 2), ones(meshXY3Dpos.numPoints, 1)];
+%   opts.sol3D.idCellsX = (0:numCellsSemiInfinite_pos-1);
+%   opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+%   opts.suffix = 'pos';
+%   opts.numCellsSemiInfinite = numCellsSemiInfinite_pos;
+%   construct_solution_3D_par(+1, meshXYpos, meshLineZ, BCstruct.pos, opts);
+
+%   for idY = 1:length(opts.sol3D.idCellsY)
+%     for idX = 1:length(opts.sol3D.idCellsX)
+%       sol = load([nomdossier, 'solution_3D_pos_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+%       X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+%       Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+
+%       trisurf(meshYZ.triangles, X, Y, real(sol.Usol));
+%       hold on;
+%       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%       set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+%     end
+%   end
+
+%   % ////////// %
+%   % X negative %
+%   % ////////// %
+%   meshXY3Dneg = FEPack.meshes.MeshRectangle(struct_mesh, [0 -opts.period], [0  opts.period], numNodesX, numNodesY);
+%   opts.sol3D.points = [meshXY3Dneg.points(:, 1), meshXY3Dneg.points(:, 2), ones(meshXY3Dneg.numPoints, 1)];
+%   opts.sol3D.idCellsX = (-numCellsSemiInfinite_neg+1:0);
+%   opts.sol3D.idCellsY = (-opts.numCellsInfinite:opts.numCellsInfinite-1);
+%   opts.suffix = 'neg';
+%   opts.numCellsSemiInfinite = numCellsSemiInfinite_neg;
+%   construct_solution_3D_par(+1, meshXYneg, meshLineZ, BCstruct.neg, opts);
+
+%   for idY = 1:length(opts.sol3D.idCellsY)
+%     for idX = 1:length(opts.sol3D.idCellsX)
+%       sol = load([nomdossier, 'solution_3D_neg_X_', num2str(idX), '_Y_', num2str(idY)]);
+
+%       X = opts.sol3D.points(:, 1) + opts.sol3D.idCellsX(idX);
+%       Y = opts.sol3D.points(:, 2) + opts.sol3D.idCellsY(idY);
+
+%       trisurf(meshYZ.triangles, X, Y, real(sol.Usol));
+%       hold on;
+%       view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%       set(gca, 'DataAspectRatio', [1 1 1], 'FontSize', 16);
+%     end
+%   end
+%   savefig(mafig3D_Z, [nomdossier, 'fig_solution_3D_Z']);
+%   close(mafig3D_Z);
+
+%   system(['rm ', nomdossier, 'solution_3D_*']);
+% end
+
+%%
+system(['rm ', nomdossier, 'half_guide_*']);
+system(['rm ', nomdossier, 'local_cell_sol_*']);
+system(['rm ', nomdossier, 'sol_trace_Floquet_*']);
+if (delete_sol)
+  system(['rm ', nomdossier, 'solution_*']);
+end

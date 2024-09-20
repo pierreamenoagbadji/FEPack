@@ -187,6 +187,9 @@
     UU0 = linsolve(full(UUmat), UU0, struct('UT', true));
     UU0 = UU0(invperm, :);
     toc;
+    
+    U0 = UU0(:, 1:Nb);
+    U1 = UU0(:, 1+Nb:end);
 
     % UU0 = zeros(size(LL0));
     % for idI = 1:size(LL0, 2)
@@ -216,8 +219,8 @@
     AAE0 = AA * E0;
     AAE1 = AA * E1;
 
-    MME0 = spB0.invmassmat * E0';
-    MME1 = spB0.invmassmat * E1';
+    MME0 = spB0.invmassmat * B0';
+    MME1 = spB0.invmassmat * B1';
 
     F00 = MME0 * AAE0; % spB0.invmassmat * (E0' * AA * E0);
     F10 = MME0 * AAE1; % spB0.invmassmat * (E0' * AA * E1);

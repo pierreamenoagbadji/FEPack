@@ -50,7 +50,7 @@ classdef SpectralBasis < FEPack.FEPackObject
       %         * phis, contains the basis functions.
       %           - If phis is a function_handle, it must be of the form
       %                phis = @(x, n) ....
-      %             where x is a Nx-by-1 set of points and n, a 1-by-Nn set of
+      %             where x is a Nx-by-d set of points and n, a 1-by-Nn set of
       %             indices of the function. phis(x, n) returns a Nx-by-Nn
       %             matrix, where Nx and Nn are respectively the lengthes of x
       %             and n.

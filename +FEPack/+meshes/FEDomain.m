@@ -149,7 +149,7 @@ classdef FEDomain < FEPack.FEPackObject
       %                barycoos(i,j) = NaN if P(i, :) does not belong to the
       %                domain.
 
-      if (nargin < 4)
+      if (nargin < 3)
         almostzero = 1e-12;
       end
 

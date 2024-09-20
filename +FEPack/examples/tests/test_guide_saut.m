@@ -21,11 +21,11 @@ u = pdes.PDEObject; v = dual(u);
 volBilinearIntg = @(muco, rhoco) (muco * grad2(u)) * grad2(v) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 % volBilinearIntg = @(muco, rhoco) (muco * gradDir(u, opts.cutvec)) * gradDir(v, opts.cutvec) - (opts.omega^2) * ((rhoco*id(u))*id(v));
 
-N = 32;
+N = 100;
 
 % Parameters for the positive half-guide
-BB = [0, 1; 0, 1]; BB(coInf, 2) = +1;
-mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+BB = [0, 1; -50, 50]; BB(coInf, 2) = +1;
+mesh_pos = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, 100*N);
 
 if strcmpi(basis_functions, 'Lagrange')
   BCstruct_pos.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_pos.domains{2*coInf});
@@ -43,8 +43,8 @@ numCells_pos = 4;
 volBilinearIntg_pos = volBilinearIntg(mu_pos, rho_pos);
 
 % Parameters for the negative half-guide
-BB = [0, 1; 0, 1]; BB(coInf, 2) = -1;
-mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, N);
+BB = [0, 1; -50, 50]; BB(coInf, 2) = -1;
+mesh_neg = meshes.MeshRectangle(structmesh, BB(1, :), BB(2, :), N, 100*N);
 
 if strcmpi(basis_functions, 'Lagrange')
   BCstruct_neg.spB0 = FEPack.spaces.PeriodicLagrangeBasis(mesh_neg.domains{2*coInf});
@@ -61,7 +61,7 @@ BCstruct_neg.representation = '';
 numCells_neg = 4;
 volBilinearIntg_neg = volBilinearIntg(mu_neg, rho_neg);
 
-jumpLinearIntg = G * id(v);
+% jumpLinearIntg = G * id(v);
 
 %%
 % Compute guide solution
@@ -70,47 +70,47 @@ U = PeriodicGuideJumpBVP(coInf,...
                      volBilinearIntg_neg, mesh_neg, BCstruct_neg, numCells_neg,...
                      G, opts);
 
-%% Plot U
-figure;
-set(groot,'defaultAxesTickLabelInterpreter','latex');
-set(groot,'defaulttextinterpreter','latex');
-set(groot,'defaultLegendInterpreter','latex');
+% %% Plot U
+% figure;
+% set(groot,'defaultAxesTickLabelInterpreter','latex');
+% set(groot,'defaulttextinterpreter','latex');
+% set(groot,'defaultLegendInterpreter','latex');
 
-for idI = 1:numCells_pos
-  subplot(-coInf+3, coInf, 1);
-  trisurf(mesh_pos.triangles, mesh_pos.points(:, 1) + (coInf == 1) * (idI-1),...
-                              mesh_pos.points(:, 2) + (coInf == 2) * (idI-1), real(U.positive(:, idI)));
-  hold on;
-  view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-  % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-  xlim([-5, 5]);
+% for idI = 1:numCells_pos
+%   subplot(-coInf+3, coInf, 1);
+%   trisurf(mesh_pos.triangles, mesh_pos.points(:, 1) + (coInf == 1) * (idI-1),...
+%                               mesh_pos.points(:, 2) + (coInf == 2) * (idI-1), real(U.positive(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   xlim([-5, 5]);
 
-  subplot(-coInf+3, coInf, 2);
-  trisurf(mesh_pos.triangles, mesh_pos.points(:, 1) + (coInf == 1) * (idI-1),...
-                              mesh_pos.points(:, 2) + (coInf == 2) * (idI-1), imag(U.positive(:, idI)));
-  hold on;
-  view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-  % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-  xlim([-5, 5]);
-end
+%   subplot(-coInf+3, coInf, 2);
+%   trisurf(mesh_pos.triangles, mesh_pos.points(:, 1) + (coInf == 1) * (idI-1),...
+%                               mesh_pos.points(:, 2) + (coInf == 2) * (idI-1), imag(U.positive(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   xlim([-5, 5]);
+% end
 
-for idI = 1:numCells_neg
-  subplot(-coInf+3, coInf, 1);
-  trisurf(mesh_neg.triangles, mesh_neg.points(:, 1) + (coInf == 1) * (-(idI-1)),...
-                              mesh_neg.points(:, 2) + (coInf == 2) * (-(idI-1)), real(U.negative(:, idI)));
-  hold on;
-  view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-  % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-  xlim([-5, 5]);
+% for idI = 1:numCells_neg
+%   subplot(-coInf+3, coInf, 1);
+%   trisurf(mesh_neg.triangles, mesh_neg.points(:, 1) + (coInf == 1) * (-(idI-1)),...
+%                               mesh_neg.points(:, 2) + (coInf == 2) * (-(idI-1)), real(U.negative(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   xlim([-5, 5]);
 
-  subplot(-coInf+3, coInf, 2);
-  trisurf(mesh_neg.triangles, mesh_neg.points(:, 1) + (coInf == 1) * (-(idI-1)),...
-                              mesh_neg.points(:, 2) + (coInf == 2) * (-(idI-1)), imag(U.negative(:, idI)));
-  hold on;
-  view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
-  % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-  xlim([-5, 5]);
-end
+%   subplot(-coInf+3, coInf, 2);
+%   trisurf(mesh_neg.triangles, mesh_neg.points(:, 1) + (coInf == 1) * (-(idI-1)),...
+%                               mesh_neg.points(:, 2) + (coInf == 2) * (-(idI-1)), imag(U.negative(:, idI)));
+%   hold on;
+%   view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
+%   % set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
+%   xlim([-5, 5]);
+% end
 
 % subplot(-coInf+3, coInf, 1);
 % trisurf(mesh_int.triangles, mesh_int.points(:, 1), mesh_int.points(:, 2), real(U.interior));

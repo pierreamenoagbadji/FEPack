@@ -20,7 +20,7 @@ save([cheminDonnees, '/inputs'], '-v7.3');
 
 %% Plot Guide solution
 load([cheminDonnees, '/inputs']);
-figure;
+mafig = figure;
 set(groot,'defaultAxesTickLabelInterpreter','latex');
 set(groot,'defaulttextinterpreter','latex');
 set(groot,'defaultLegendInterpreter','latex');
@@ -53,4 +53,8 @@ for idX = 1:numCellsXneg
   end
 end
 
-print([cheminDonnees, '/solution'], '-dpng');
+% Pour permettre à savefig de fonctionner malgré la taille des fichiers 
+rootgroup = settings();
+rootgroup.matlab.general.matfile.SaveFormat.PersonalValue = 'v7.3';
+savefig(mafig, [cheminDonnees, '/solution'], 'compact');
+% print([cheminDonnees, '/solution'], '-dpng');

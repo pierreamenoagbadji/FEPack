@@ -9,9 +9,6 @@ classdef EssentialBCLagrangeBasis < FEPack.spaces.SpectralBasis
 
   properties (SetAccess = protected)
 
-    % Essential condition
-    ecs = [];
-
   end
 
   methods
@@ -55,7 +52,6 @@ classdef EssentialBCLagrangeBasis < FEPack.spaces.SpectralBasis
       sp@FEPack.spaces.SpectralBasis(domain, phis, size(phis, 2));
       sp.is_interpolated = 1;
       sp.computeBasisMatrices(0);
-      sp.ecs = ecs;
 
     end
 

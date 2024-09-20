@@ -1,26 +1,26 @@
 clear; clc;
 %%
 import FEPack.*
-profile OFF
-profile ON
+% profile OFF
+% profile ON
 
 %% Problem-related variables
-omega = 8 + 1i;
+omega = 8 + 0.25i;
 opts.omega = omega;
 period = 1;
 opts.verbose = 0;
-problem_setting = 'A'; % 'A' or 'B'
+problem_setting = 'B'; % 'A' or 'B'
 
 if strcmpi(problem_setting, 'A')
 
   % 2D coefficients
   period_posFun = 1;
-  period_negFun = 1;%0.5 * sqrt(2);
+  period_negFun = sqrt(2);
 
-  mu2Dpos = @(x) ones(size(x, 1), 1); %0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
-  rho2Dpos = @(x) ones(size(x, 1), 1); %0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
-  mu2Dneg  = @(x) ones(size(x, 1), 1); %1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
-  rho2Dneg = @(x) ones(size(x, 1), 1); %1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
+  mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2]);
+  rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], [0; period_posFun], [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
+  mu2Dneg  = @(x) 1 + 0.5 * cos(2*pi*x(:, 1)) .* cos(2*pi*x(:, 2)/period_negFun);
+  rho2Dneg = @(x) 1 + 0.25 * sin(2*pi*x(:, 1)) + 0.25 * sin(2*pi*x(:, 2)/period_negFun);
 
   % Cut vector
   period_pos = period_posFun;
@@ -37,7 +37,7 @@ if strcmpi(problem_setting, 'A')
 else
 
   % 2D coefficients
-  vecperFun = [-0.5*sqrt(2), 1]; % [-sqrt(2), 1];
+  vecperFun = [-sqrt(2), 1]; % [-sqrt(2), 1];
   
   mu2Dpos = @(x) 0.5 + perCutoffCircle(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2]);
   rho2Dpos = @(x) 0.5 + perCutoffCuboid(x, [1; 0], vecperFun, [0.5, 0.5], [-0.2, 0.2], [-0.2, 0.2], 0.5, 1);
@@ -72,16 +72,16 @@ G3D = @(x) G([zeros(size(x, 1), 1), x(:, 2)/cutvec(1), zeros(size(x, 1), 1)]);
 % (semi-)infinite directions and numbers of cells
 semiInfiniteDirection = 1;
 infiniteDirection = 2;
-numCellsSemiInfinite_pos = 6;
-numCellsSemiInfinite_neg = 6;
-numCellsInfinite = 5;
-numFloquetPoints = 40;
+numCellsSemiInfinite_pos = 8;
+numCellsSemiInfinite_neg = 8;
+numCellsInfinite = 8;
+numFloquetPoints = 64;
 
 %% Mesh
 pregenerate_mesh = 1;
 struct_mesh = 1;
-numNodes2D = 20;
-numNodes3D = 20;
+numNodes2D = 100;
+numNodes3D = 40;
 
 if pregenerate_mesh
 
@@ -318,8 +318,8 @@ for idI = 1:2*numCellsInfinite
   U2D.negative(:, IcellY) = reshape(sum(reshape(coos .* U3D.negative(elts, IcellY), dom.dimension+1, []), 1), N2Dneg, []);
 end
 
-profile viewer
-profile OFF
+% profile viewer
+% profile OFF
 
 %% Plot U
 figure;%(1);

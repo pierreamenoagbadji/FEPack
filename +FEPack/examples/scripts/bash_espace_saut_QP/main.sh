@@ -7,9 +7,11 @@ GREEN='\033[0;92m'
 NC='\033[0m' # No Color
 
 # Folder for outputs 
-chemin='/home/pierre/Documents/Etudes/these/codes/FEPack/+FEPack';
+chemin='/home/uma/amenoagbadji/FEPack/+FEPack';
 
-cheminDonnees='/home/pierre/Documents/Etudes/these/codes/FEPack/+FEPack/outputs';
+cheminDonnees='/UMA/tmp/amenoagbadji/solution_A_homogeneous';
+# cheminDonnees='/home/uma/amenoagbadji/FEPack/+FEPack/outputs';
+mkdir $cheminDonnees
 cd $chemin
 
 # Delete outputs/* if requested
@@ -27,10 +29,10 @@ while getopts ":r" opt; do
 done
 
 # Parameters
-numFloquetPoints=128;  # Total number of Floquet points 
-sizeFloquetClust=32;   # Number of Floquet points per cluster
+numFloquetPoints=32;  # Total number of Floquet points 
+sizeFloquetClust=8;   # Number of Floquet points per cluster
 (( numClusters=numFloquetPoints/sizeFloquetClust )); # Number of Clusters
-numbersNodes=(5 10);  # List of numbers of nodes
+numbersNodes=(50);  # List of numbers of nodes
 
 # Initialization (parallel wrt numNodes)
 for numNodes in "${numbersNodes[@]}"
@@ -53,9 +55,13 @@ do
   done
   wait # for all the waveguide problems to be solved
   
+  # ###############################################################################
+  # matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); solve_TFB_waveguide(1, $numFloquetPoints, $numNodes, '$cheminDonnees'); quit;"
+  # ###############################################################################
+
   # Conclusion
   matlab -nosplash -nodesktop -r "addpath(genpath('../../FEPack')); addpath(genpath('../+FEPack')); numNodes = $numNodes; cheminDonnees = '$cheminDonnees'; end_script_transmission; quit;"
 
   # Remove outputs
-  rm $chemin/outputs/TFBU_*
+  rm $cheminDonnees/TFBU_*
 done

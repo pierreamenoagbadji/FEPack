@@ -2,14 +2,14 @@ clear; clc;
 import FEPack.*
 
 % profile ON
-opts.omega = 8 + 0.05i;
-problem_setting = 'B'; % 'A' or 'B'
+opts.omega = 8 + 0.25i;
+problem_setting = 'A'; % 'A' or 'B'
 pregenerate_mesh = 0;
 struct_mesh = 0;
 
 numCellsXpos = 6;
 numCellsXneg = 6;
-numCellsZ = 100;
+numCellsZ = 5;
 sizeCellZ = 1.0;
 Zorigin = -sizeCellZ * 0.5 * numCellsZ;
 
@@ -37,18 +37,18 @@ else
 end
 
 % Jump data
-% alpha_G = 100;
-% eps_G = 1e-8;
-% supp_G = -log(eps_G) / alpha_G;
-% G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
-G = @(x) 100 * FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
+alpha_G = 3;
+eps_G = 1e-8;
+supp_G = -log(eps_G) / alpha_G;
+G = @(x) exp(-alpha_G * x(:, 2).^2) .* (abs(x(:, 2)) <= supp_G);
+% G = @(x) FEPack.tools.cutoff(x(:, 2), -0.5, 0.5);
 
 %% Initialization
 fprintf('A. Initialisation\n');
 
 % Mesh
-numNodesX = 10;
-numNodesZ = 10;
+numNodesX = 20;
+numNodesZ = 20;
 
 Nz = ceil(numNodesZ * sizeCellZ);
 
@@ -73,34 +73,28 @@ end
 
 %% Trace of guide solution
 fprintf('B. Problèmes de demi-guide\n');
-basis_function.name = 'Fourier';
-basis_function.FourierIds = (-numNodesX:numNodesX);
-referenceHalfGuide(mesh_pos, +1, opts.omega, mu_pos, rho_pos, numCellsZ, sizeCellZ, Zorigin, basis_function, 'pos');
-referenceHalfGuide(mesh_neg, -1, opts.omega, mu_neg, rho_neg, numCellsZ, sizeCellZ, Zorigin, basis_function, 'neg');
+referenceHalfGuide(mesh_pos, +1, opts.omega, mu_pos, rho_pos, numCellsZ, sizeCellZ, Zorigin, 'pos');
+referenceHalfGuide(mesh_neg, -1, opts.omega, mu_neg, rho_neg, numCellsZ, sizeCellZ, Zorigin, 'neg');
 
 fprintf('C. Transmission à l''interface\n');
 solGuidePos = load('outputs/half_guide_solution_pos');
 solGuideNeg = load('outputs/half_guide_solution_neg');
 
-%% Transmission equation
 % Right-hand side
 numBasisX = size(solGuidePos.Lambda, 1);
 Sigma0x = mesh_pos.domain('xmin'); N0x = Sigma0x.numPoints;
 u = FEPack.pdes.PDEObject; v = dual(u);
-GG = zeros(numBasisX, 1);
+GG = sparse(numBasisX, 1);
 
-MM = FEPack.pdes.Form.intg(Sigma0x, u * v);
+MM = FEPack.pdes.Form.intg(mesh_pos.domain('volumic'), u * v);
 MM = MM(Sigma0x.IdPoints, Sigma0x.IdPoints);
 
-%%
-Sigma0xPoints = sort(mesh_pos.points(Sigma0x.IdPoints, 2));
-
 for idZ = 1:numCellsZ
-  idBasis = (1+(idZ-1)*(N0x-1):1+idZ*(N0x-1))';
+  II = (1+(idZ-1)*(N0x-1):1+idZ*(N0x-1))';
   cellZorigin = sizeCellZ * (idZ - 1) + Zorigin;
-  Gvec = G([mesh_pos.points(Sigma0x.IdPoints, 1), mesh_pos.points(Sigma0x.IdPoints, 2) + cellZorigin]);
 
-  GG = GG + solGuidePos.B0(idBasis, :)' * MM * Gvec;
+  VV = G([mesh_pos.points(Sigma0x.IdPoints, 1), mesh_pos.points(Sigma0x.IdPoints, 2) + cellZorigin]);
+  GG = GG + sparse(II, 1, VV, numBasisX, 1);
 end
 
 % Solve linear system
@@ -117,7 +111,7 @@ for idZ = 1:numCellsZ
   
   % Solution in the positive guide
   R0phi = solphi;
-  R1phi = solGuidePos.Sop * solphi;
+  R1phi = solGuidePos.S * solphi;
   SC = load(['outputs/local_cell_sol_pos_', int2str(idZ)]);
   idBasis = 1+(idZ-1)*(N0x-1):1+idZ*(N0x-1);
 
@@ -131,13 +125,13 @@ for idZ = 1:numCellsZ
                                SC.E1z * solGuidePos.traceE1{idZ+1}) * R1phi;
     
     % Update the coefficients
-    R0phi = solGuidePos.Pop * R0phi;
-    R1phi = solGuidePos.Sop * R0phi;
+    R0phi = solGuidePos.P * R0phi;
+    R1phi = solGuidePos.S * R0phi;
   end
 
   % Solution in the negative guide
   R0phi = solphi;
-  R1phi = solGuideNeg.Sop * solphi;
+  R1phi = solGuideNeg.S * solphi;
   SC = load(['outputs/local_cell_sol_neg_', int2str(idZ)]);
   idBasis = 1+(idZ-1)*(N0x-1):1+idZ*(N0x-1);
 
@@ -151,8 +145,8 @@ for idZ = 1:numCellsZ
                                SC.E1z * solGuideNeg.traceE1{idZ+1}) * R1phi;
     
     % Update the coefficients
-    R0phi = solGuideNeg.Pop * R0phi;
-    R1phi = solGuideNeg.Sop * R0phi;
+    R0phi = solGuideNeg.P * R0phi;
+    R1phi = solGuideNeg.S * R0phi;
   end
 
 end
@@ -165,10 +159,8 @@ set(groot,'defaultAxesTickLabelInterpreter','latex');
 set(groot,'defaulttextinterpreter','latex');
 set(groot,'defaultLegendInterpreter','latex');
 
-numCellsZplot = 5;
-
 for idX = 1:numCellsXpos
-  for idZ = (numCellsZ/2 - numCellsZplot + 1):(numCellsZ/2 + numCellsZplot)
+  for idZ = 1:numCellsZ
     fprintf('%d/%d et %d/%d\n', idX, numCellsXpos, idZ, numCellsZ);
     cellZorigin = sizeCellZ * (idZ - 1) + Zorigin;
 
@@ -181,7 +173,7 @@ for idX = 1:numCellsXpos
 end
 
 for idX = 1:numCellsXneg
-  for idZ = (numCellsZ/2 - numCellsZplot + 1):(numCellsZ/2 + numCellsZplot)
+  for idZ = 1:numCellsZ
     fprintf('%d/%d et %d/%d\n', idX, numCellsXneg, idZ, numCellsZ);
     cellZorigin = sizeCellZ * (idZ - 1) + Zorigin;
 

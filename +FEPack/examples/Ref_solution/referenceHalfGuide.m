@@ -1,4 +1,4 @@
-function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, numCellsZ, sizeCellZ, Zorigin, basis_function, suffix)
+function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, numCellsZ, sizeCellZ, Zorigin, suffix)
 
   fprintf('1. Problèmes de cellule locaux\n');
   Sigma0x = meshcell.domain('xmin'); N0x = Sigma0x.numPoints;
@@ -90,9 +90,11 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
   % ------------- %
   % Jacobi system %
   % ------------- %
+  %%
   fprintf('2. Système de Jacobi\n');
   Njaco = (N0z - 2) * (numCellsZ - 1);
   AAjaco = sparse(Njaco, Njaco);
+  % AAjaco2 = sparse(Njaco, Njaco);
 
   % Jacobi matrix
   fprintf('\tMatrice de Jacobi\n');
@@ -104,6 +106,9 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
     II = (1+(idZ-1)*(N0z-2):idZ*(N0z-2))' * ones(1, N0z-2);
     JJ = II';
     AAjaco = AAjaco + sparse(II(:), JJ(:), SC2.T0z0z(:) + SC1.T1z1z(:), Njaco, Njaco);
+    
+    % idJaco = 1+(idZ-1)*(N0z-2):idZ*(N0z-2);
+    % AAjaco2(idJaco, idJaco) = SC2.T0z0z + SC1.T1z1z; % Diagonal
   end
 
   for idZ = 1:numCellsZ-2 % Lower and upper diagonals of Jacobi matrix
@@ -115,40 +120,17 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
     JJplus1 = IIplus1';
     AAjaco  = AAjaco + sparse(IIplus1(:), JJ(:), SC.T0z1z(:), Njaco, Njaco)...
                      + sparse(II(:), JJplus1(:), SC.T1z0z(:), Njaco, Njaco);
+
+    % idJaco = 1+(idZ-1)*(N0z-2):idZ*(N0z-2);
+    % AAjaco2(idJaco + (N0z-2), idJaco) = SC.T0z1z;
+    % AAjaco2(idJaco, idJaco + (N0z-2)) = SC.T1z0z;
   end
 
   %% Right-hand sides
   fprintf('\tSeconds membres\n');
-  numPointsXcst = numCellsZ * (N0x - 1) + 1;  % Number of nodes on x = cst
-  
-  if strcmp(basis_function.name, 'Lagrange')
-
-    B0 = speye(numPointsXcst, numPointsXcst);
-    % B0(:, 1) = [];
-    % B0(:, end) = [];
-    B1 = B0;
-
-  elseif strcmp(basis_function.name, 'Fourier')
-
-    Sigma0xPoints = sort(meshcell.points(Sigma0x.IdPoints, 2));
-    pointsXcst = Sigma0xPoints * ones(1, numCellsZ)...
-               + sizeCellZ * ones(Sigma0x.numPoints, 1) * (0:numCellsZ-1) + Zorigin;
-    
-    pointsXcst(1, :) = [];
-    pointsXcst = [Sigma0xPoints(1) + Zorigin; pointsXcst(:)];
-
-    B0 = exp(2i * pi * pointsXcst * basis_function.FourierIds(:)' / (sizeCellZ * numCellsZ));
-    B1 = B0;
-    
-  else
-
-    error(['Paramètre ', basis_function.name, ' non reconnu.']);
-
-  end
-
-  numBasisX = size(B0, 2);
-  LL0 = sparse(Njaco, numBasisX);% LL0b = LL0;
-  LL1 = sparse(Njaco, numBasisX);% LL1b = LL1;
+  numBasisX = numCellsZ * (N0x - 1) + 1;  % Number of nodes on x = cst 
+  B0 = speye(numBasisX, numBasisX); LL0 = sparse(Njaco, size(B0, 2));% LL0b = LL0;
+  B1 = speye(numBasisX, numBasisX); LL1 = sparse(Njaco, size(B1, 2));% LL1b = LL1;
 
   for idZ = 1:numCellsZ-1
     SC1 = load(['outputs/local_cell_sol_' suffix, '_', int2str(idZ)]);
@@ -161,9 +143,13 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
 
     VV0 = -SC1.T0x1z * B0(idBasis, :) - SC2.T0x0z * B0(idBasis+N0x-1, :);
     VV1 = -SC1.T1x1z * B1(idBasis, :) - SC2.T1x0z * B1(idBasis+N0x-1, :);
-
+    
     LL0 = LL0 + sparse(II(:), JJ(:), VV0(:), Njaco, size(B0, 2));
     LL1 = LL1 + sparse(II(:), JJ(:), VV1(:), Njaco, size(B1, 2));
+
+    % idJaco  = 1+(idZ-1)*(N0z-2):idZ*(N0z-2);
+    % LL0b(idJaco, :) = -SC1.T0x1z * B0(idBasis, :) - SC2.T0x0z * B0(idBasis+N0x-1, :);
+    % LL1b(idJaco, :) = -SC1.T1x1z * B1(idBasis, :) - SC2.T1x0z * B1(idBasis+N0x-1, :);
   end
 
   %% Solve system
@@ -198,7 +184,7 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
       E1{idZ} = SC.E1x * B1(idBasis, :) + SC.E0z * traceE1{idZ} + SC.E1z * traceE1{idZ+1};
     end
 
-    for idI = 1:size(B1, 2) % (length(basis_function.FourierIds)+1)/2
+    for idI = 1:size(B1, 2)
       for idZ = 1:numCellsZ
         cellZorigin = sizeCellZ * (idZ - 1) + Zorigin;
         trisurf(meshcell.triangles, meshcell.points(:, 1),...
@@ -206,7 +192,7 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
         hold on;
         view(2); shading interp; colorbar('TickLabelInterpreter', 'latex');
         set(gca,'DataAspectRatio',[1 1 1], 'FontSize', 16);
-        % caxis([-0.2, 1]);
+        caxis([-0.2, 1]);
       end
       hold off;
       pause;
@@ -218,20 +204,20 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
   % --------------------------------------------------- %
   % Compute mass matrix associated to boundary
   MMx = sparse(numBasisX, numBasisX);
-  MM = FEPack.pdes.Form.intg(Sigma0x, u * v);
+  MM = FEPack.pdes.Form.intg(domCell, u * v);
   MM = MM(Sigma0x.IdPoints, Sigma0x.IdPoints);
 
   for idZ = 1:numCellsZ
-    idBasis = (1+(idZ-1)*(N0x-1):1+idZ*(N0x-1))';
-    
-    MMx = MMx + B0(idBasis, :)' * MM * B0(idBasis, :);
+    II = (1+(idZ-1)*(N0x-1):1+idZ*(N0x-1))' * ones(1, N0x);
+    JJ = II';
+    MMx = MMx + sparse(II(:), JJ(:), MM(:), numBasisX, numBasisX);
   end
-  
+
   % Trace of local cell solutions
-  E00 = speye(numBasisX, numBasisX); % MMx;
+  E00 = MMx;
   E10 = sparse(numBasisX, numBasisX);
   E01 = sparse(numBasisX, numBasisX);
-  E11 = speye(numBasisX, numBasisX); % MMx;
+  E11 = MMx;
 
   % Normal trace of local cell solutions
   F00 = zeros(numBasisX, numBasisX);
@@ -243,23 +229,23 @@ function referenceHalfGuide(meshcell, orientation, omega, mu_coeff, rho_coeff, n
     SC = load(['outputs/local_cell_sol_' suffix, '_', int2str(idZ)]);
     idBasis = 1+(idZ-1)*(N0x-1):1+idZ*(N0x-1);
 
-    F00 = F00 + B0(idBasis, :)' * (SC.T0x0x * B0(idBasis, :) + SC.T0z0x * traceE0{idZ} + SC.T1z0x * traceE0{idZ+1});
-    F01 = F01 + B0(idBasis, :)' * (SC.T0x1x * B0(idBasis, :) + SC.T0z1x * traceE0{idZ} + SC.T1z1x * traceE0{idZ+1});
-    F10 = F10 + B1(idBasis, :)' * (SC.T1x0x * B1(idBasis, :) + SC.T0z0x * traceE1{idZ} + SC.T1z0x * traceE1{idZ+1});
-    F11 = F11 + B1(idBasis, :)' * (SC.T1x1x * B1(idBasis, :) + SC.T0z1x * traceE1{idZ} + SC.T1z1x * traceE1{idZ+1});
+    F00(idBasis, :) = F00(idBasis, :) + SC.T0x0x * B0(idBasis, :) + SC.T0z0x * traceE0{idZ} + SC.T1z0x * traceE0{idZ+1};
+    F01(idBasis, :) = F01(idBasis, :) + SC.T0x1x * B0(idBasis, :) + SC.T0z1x * traceE0{idZ} + SC.T1z1x * traceE0{idZ+1};
+    F10(idBasis, :) = F10(idBasis, :) + SC.T1x0x * B1(idBasis, :) + SC.T0z0x * traceE1{idZ} + SC.T1z0x * traceE1{idZ+1};
+    F11(idBasis, :) = F11(idBasis, :) + SC.T1x1x * B1(idBasis, :) + SC.T0z1x * traceE1{idZ} + SC.T1z1x * traceE1{idZ+1};
   end
 
   % Riccati equation
   fprintf('3. Equation de Riccati\n');
-  [Pop, Sop] = propagationOperators([E01, E11;  orientation*F01,  orientation*F11],...
-                                    [E00, E10; -orientation*F00, -orientation*F10],...
-                                    @(V, E00, E10, F00, F10) -orientation * imag(diag(...
-                                          (E00 * V(1:Nb, :) + E10 * V(Nb+1:end, :))' *...
-                                          (F00 * V(1:Nb, :) + F10 * V(Nb+1:end, :))) / opts.omega)); %#ok
+  [P, S] = propagationOperators([E01, E11;  orientation*F01,  orientation*F11],...
+                                [E00, E10; -orientation*F00, -orientation*F10],...
+                                @(V, E00, E10, F00, F10) -orientation * imag(diag(...
+                                      (E00 * V(1:Nb, :) + E10 * V(Nb+1:end, :))' *...
+                                      (F00 * V(1:Nb, :) + F10 * V(Nb+1:end, :))) / opts.omega)); %#ok
 
   % Global DtN operator
-  Lambda = F00 + F10 * Sop; %#ok
+  Lambda = F00 + F10 * S; %#ok
 
   % Save output
-  save(['outputs/half_guide_solution_', suffix], 'traceE0', 'traceE1', 'Pop', 'Sop', 'Lambda', 'B0', 'B1');
+  save(['outputs/half_guide_solution_', suffix], 'traceE0', 'traceE1', 'P', 'S', 'Lambda', 'B0', 'B1');
 end
