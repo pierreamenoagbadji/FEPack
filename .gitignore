@@ -2,6 +2,10 @@
 /+FEPack/outputs/
 /+FEPack/resultats_nums/
 
+# Ignore the old and temp folders
+/+FEPack/olds/
+/+FEPack/temp/
+
 # Ignore the gmsh folder
 /gmsh-4.10.5-Linux64/*
 
