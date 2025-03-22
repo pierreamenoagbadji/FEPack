@@ -56,6 +56,7 @@ idEigsImN = find(isOnUnitCircle & imag(E) < eps);
 idEigsIm0ReP = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) > eps);
 idEigsIm0ReN = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) < eps);
 
+% %% 
 % % figure;
 % figRD = figure('Position', get(0, 'Screensize'), 'visible', 'off');
 % set(groot,'defaultAxesTickLabelInterpreter','latex');
@@ -71,6 +72,17 @@ idEigsIm0ReN = find(isOnUnitCircle & abs(imag(E)) < eps & real(E) < eps);
 % print(figRD, ['outputs/eigsR_', num2str(floor(length(E)/2)), '_', opts.suffix], '-dpng');
 % pause(0.5);
 % close(figRD);
+% %%
+
+% For certain applications stop the code
+if isfield(opts, 'stop_if_spectral_radius_is_one')
+
+  if (opts.stop_if_spectral_radius_is_one && ~isempty(find(isOnUnitCircle, 1)))
+    error(['[propagationOperators.m][spectral_radius_is_one] ', ...
+           'You asked to stop when the spectral radius is one.']);
+  end
+
+end 
 
 % Preliminary verifications
 strReco = 'Revoir la tolerance ou le nombre de fonctions de base.';

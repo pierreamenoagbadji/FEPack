@@ -19,8 +19,8 @@ Sigma1 = mesh.domains{2*coInf-1};
 %
 u = pdes.PDEObject; v = dual(u);
 % volIntg = (mu * gradDir(u, opts.cutvec))*gradDir(v, opts.cutvec) - (opts.omega^2) * ((rho*id(u))*id(v));
-muGrad = @(x) kron(eye(3), mu(x));
-volIntg = (muGrad * grad(u))*grad(v) - (opts.omega^2) * ((rho*id(u))*id(v));
+muGrad = @(x) kron(eye(2), mu(x));
+volIntg = (muGrad * grad2(u)) * grad2(v) - (opts.omega^2) * ((rho*id(u))*id(v));
 
 BCstruct.spB0 = FEPack.spaces.PeriodicLagrangeBasis(Sigma0);
 BCstruct.spB1 = FEPack.spaces.PeriodicLagrangeBasis(Sigma1);

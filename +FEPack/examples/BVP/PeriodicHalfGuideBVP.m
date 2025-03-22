@@ -173,29 +173,30 @@
     % Solve the local cell problems
     AA0 =  ecs.P * AA * ecs.P';
     LL0 = -ecs.P * AA * ecs.b;
-    % tic;
-    % UU0 = AA0 \ LL0;
-    % toc;
 
-    % UU0 = AA0(perm, perm) \ LL0(perm, :); % VERY VERY BAD
     tic;
-    perm = dissect(AA0);
-    invperm(perm) = 1:numel(perm);
-
-    [LLmat, UUmat, luperm] = lu(AA0(perm, perm), 'vector');
-    UU0 = linsolve(full(LLmat), full(LL0(perm(luperm), :)), struct('LT', true));
-    UU0 = linsolve(full(UUmat), UU0, struct('UT', true));
-    UU0 = UU0(invperm, :);
+    UU0 = AA0 \ LL0;
     toc;
-    
-    U0 = UU0(:, 1:Nb);
-    U1 = UU0(:, 1+Nb:end);
 
-    % UU0 = zeros(size(LL0));
-    % for idI = 1:size(LL0, 2)
-    %   UU0(:, idI) = gmres(AA0, LL0(:, idI));
-    % end
-    % norm(AA0 * UU0 - LL0, 'fro')
+    % % UU0 = AA0(perm, perm) \ LL0(perm, :); % VERY VERY BAD
+    % tic;
+    % perm = dissect(AA0);
+    % invperm(perm) = 1:numel(perm);
+
+    % [LLmat, UUmat, luperm] = lu(AA0(perm, perm), 'vector');
+    % UU0 = linsolve(full(LLmat), full(LL0(perm(luperm), :)), struct('LT', true));
+    % UU0 = linsolve(full(UUmat), UU0, struct('UT', true));
+    % UU0 = UU0(invperm, :);
+    % toc;
+    
+    % U0 = UU0(:, 1:Nb);
+    % U1 = UU0(:, 1+Nb:end);
+
+    % % UU0 = zeros(size(LL0));
+    % % for idI = 1:size(LL0, 2)
+    % %   UU0(:, idI) = gmres(AA0, LL0(:, idI));
+    % % end
+    % % norm(AA0 * UU0 - LL0, 'fro')
     
     Ecell = ecs.b + ecs.P' * UU0;%(AA0 \ LL0);
     % Ecell = CellBVP(mesh, AA, 0.0, ecs);
@@ -300,12 +301,23 @@
 
   % Solve the linearized eigenvalue problem associated to the Riccati equation
   flux = @(V) modesFlux(V, E00, E10, F00, F10, orientation, spB0, opts.omega);
-  riccatiOpts.tol = 1.0e-2;
+
+  if isfield(opts, 'tol')
+    riccatiOpts.tol = opts.tol;
+  else
+    riccatiOpts.tol = 1.0e-2;
+  end
+  
   if isfield(opts, 'suffix')
     riccatiOpts.suffix = opts.suffix;
   else
     riccatiOpts.suffix = '';
   end
+
+  if isfield(opts, 'stop_if_spectral_radius_is_one')
+    riccatiOpts.stop_if_spectral_radius_is_one = opts.stop_if_spectral_radius_is_one;
+  end
+  
   [R, D] = propagationOperators([E01, E11;  orientation*F01,  orientation*F11], ...
                                 [E00, E10; -orientation*F00, -orientation*F10], flux, riccatiOpts);
 
@@ -361,7 +373,7 @@
   end
 
   % Compute the trace and the normal trace of the half-guide solution
-  U0 = E00 + E10 * D;
+  U0  = E00 + E10 * D;
   dU0 = F00 + F10 * D;
 
   Lambda = -BCstruct.BCu' * dU0 + BCstruct.BCdu' * U0;

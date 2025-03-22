@@ -8,13 +8,10 @@ classdef HoneycombObject < FEPack.FEPackObject
 
   properties (SetAccess = public)
 
-    % Expression of the honeycomb potential
-    fun = [];
-
-    % Properties
-    is_even = [];
-    is_real = [];
-
+    % Expression of the honeycomb lattice potentials
+    V = [];
+    W = [];
+    
     % Center of lattice
     center = [];
 
@@ -30,19 +27,22 @@ classdef HoneycombObject < FEPack.FEPackObject
     highSymK = [];
     brillouinVerts = [];
 
+    % Edge
+    edge = [];
+
+    % Domain wall
+    kappa = [];
+
   end
 
   methods
 
-    function obj = HoneycombObject(is_even, is_real, type, fun)
+    function obj = HoneycombObject(typeV, typeW, funV, funW)
 
       % is_even (boolean): is the potential even?
       % is_real (boolean): is the potential real-valued?
-      % type (string): options are 'atomic', 'optical', 'trigonometric', and 'custom'
+      % type (string): options are 'atomic', 'optical', 'trigonometric', 'custom', and 'none'
       % fun (function handle): only need if the type is 'custom'; gives a user-specified expression of the potential
-
-      obj.is_even = is_even;
-      obj.is_real = is_real;
 
       % Center of lattice
       obj.center = [0; 0];
@@ -57,94 +57,76 @@ classdef HoneycombObject < FEPack.FEPackObject
 
       % High symmetry quasi-momenta
       obj.highSymK = (obj.dualVec1 - obj.dualVec2) / 3; % High-symmetry quasi-momentum
-      obj.brillouinVerts = [ obj.highSymK,...
+      obj.brillouinVerts = [obj.highSymK,...
                            -obj.highSymK + obj.dualVec1,...
                             obj.highSymK + obj.dualVec2,...
                            -obj.highSymK,...
                             obj.highSymK - obj.dualVec1,...
                            -obj.highSymK - obj.dualVec2];
+      
+      % V
+      if strcmpi(typeV, 'atomic')
 
-      if strcmpi(type, 'atomic')
+        obj.V = @(x) FEPack.tools.atomicPotential(x, obj.vecPer1, obj.vecPer2);
 
-        % display(obj.myfun(5))
-        obj.fun = @(x) obj.atomicPotential(x);
+      elseif strcmpi(typeV, 'optical')
 
-      elseif strcmpi(type, 'optical')
+        obj.V = @(x) FEPack.tools.opticalPotential(x, obj.dualVec1, obj.dualVec2, true);
 
-        obj.fun = @(x) obj.opticalPotential(x);
+      elseif strcmpi(typeV, 'trigonometric')
 
-      elseif strcmpi(type, 'trigonometric')
+        obj.V = @(x) obj.trigonometricPolynomial(x, true);
 
-        obj.fun = @(x) obj.trigonometricPolynomial(x);
+      elseif strcmpi(typeV, 'custom')
 
-      elseif strcmpi(type, 'custom')
-
-        if (nargin < 4)
-          error(['Option', type, ' was selected: a function handle has to be provided.']);
+        if (nargin < 3)
+          error(['Option', typeV, ' was selected: a function handle has to be provided.']);
         end
 
-        obj.fun = fun;
+        obj.V = funV;
 
+      elseif strcmpi(typeV, 'none')
+
+        obj.V = [];
+      
       else
 
-        error(['Option ', type, ' unrecognized; only options are ''atomic'', ''optical'', ''trigonometric'', ''custom''']);
+        error(['Option ', typeV, ' unrecognized; only options are ''atomic'', ''optical'', ''trigonometric'', ''custom''']);
 
       end
 
-    end
+      % W
+      if strcmpi(typeW, 'optical')
 
-    function val = atomicPotential(obj, x, centers, amps, rads)
+        obj.W = @(x) FEPack.tools.opticalPotential(x, obj.dualVec1, obj.dualVec2, false);
 
-      % centers: 2 x Nc vector
-      % amps:   Nc x 1  vector
-      % rads:   Nc x 1  vector
-      if (nargin < 5), rads = 0.4; end
-      if (nargin < 4), amps = 10; end
-      if (nargin < 3), centers = [0; 0]; end
+      elseif strcmpi(typeW, 'trigonometric')
 
-      vecPer1 = obj.vecPer1(:);
-      vecPer2 = obj.vecPer2(:);
+        obj.W = @(x) obj.trigonometricPolynomial(x, false);
 
-      R = [vecPer1, vecPer2];
-      T = R \ eye(2);
-      normR = norm(R, 'fro');
+      elseif strcmpi(typeW, 'custom')
 
-      Nc = size(centers, 2);
-      val = zeros(size(x, 1), 1);
+        if (nargin < 4)
+          error(['Option', typeW, ' was selected: a function handle has to be provided.']);
+        end
 
-      for idC = 1:Nc
+        obj.W = funW;
 
-        Xmod = (R * (mod(T * (x(:, 1:2).' - centers(:, idC)) + 0.5, 1) - 0.5)).';
-        normXmod = sqrt(Xmod(:, 1).^2 + Xmod(:, 2).^2);
+      elseif strcmpi(typeW, 'none')
 
-        val = val +...
-              amps(idC) * FEPack.tools.cutoff(normXmod, -rads(idC)*normR, rads(idC)*normR);
-
-      end
-
-    end
-
-    function val = opticalPotential(obj, x)
+        obj.W = [];
       
-      if (obj.is_even)
-        Xmod = cos(x(:, 1:2) *  obj.dualVec1) + ...
-               cos(x(:, 1:2) *  obj.dualVec2) + ...
-               cos(x(:, 1:2) * (obj.dualVec1  + obj.dualVec2));
-
-        val = FEPack.tools.cutoff(Xmod, -1.5, 1.5);
       else
-        Xmod = sin(x(:, 1:2) *  obj.dualVec1) + ...
-               sin(x(:, 1:2) *  obj.dualVec2) + ...
-               sin(x(:, 1:2) * (obj.dualVec1  + obj.dualVec2));
 
-        val = tanh(Xmod);
+        error(['Option ', typeW, ' unrecognized; only options are ''atomic'', ''optical'', ''trigonometric'', ''custom''']);
+
       end
 
     end
-
-    function val = trigonometricPolynomial(obj, x)
+    
+    function val = trigonometricPolynomial(obj, x, is_even)
       
-      if (obj.is_even)
+      if (is_even)
         val = cos(x(:, 1:2) *  obj.dualVec1) +...
               cos(x(:, 1:2) *  obj.dualVec2) +...
               cos(x(:, 1:2) * (obj.dualVec1  + obj.dualVec2));
