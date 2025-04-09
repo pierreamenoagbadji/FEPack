@@ -6,38 +6,42 @@ import FEPack.*
 HcObj = applications.HoneycombObject('none', 'none');
 
 % Honeycomb lattice potentials
-centers = [-1/sqrt(3), 1/sqrt(3); 0, 0];
-ampsV   = [0;  0];
-ampsW   = [10; 10];
-rads    = [0.2; 0.2];
-HcObj.V = @(x) FEPack.tools.atomicPotential(x, HcObj.vecPer1, HcObj.vecPer2, centers, ampsV, rads);
-HcObj.W = @(x) 1 + FEPack.tools.atomicPotential(x, HcObj.vecPer1, HcObj.vecPer2, centers, ampsW, rads);
-HcObj.V = @(x) 4.5 - (cos(x(:, 1:2) *  HcObj.dualVec1)...
-                   +  cos(x(:, 1:2) *  HcObj.dualVec2)...
-                   +  cos(x(:, 1:2) * (HcObj.dualVec1 + HcObj.dualVec2)));
+% centers = [-1/sqrt(3), 1/sqrt(3); 0, 0];
+% ampsV   = [0;  0];
+% ampsW   = [10; 10];
+% rads    = [0.2; 0.2];
+% HcObj.V = @(x) FEPack.tools.atomicPotential(x, HcObj.vecPer1, HcObj.vecPer2, centers, ampsV, rads);
+% HcObj.W = @(x) 1 + FEPack.tools.atomicPotential(x, HcObj.vecPer1, HcObj.vecPer2, centers, ampsW, rads);
 
-HcObj.W = @(x) sin(x(:, 1:2) *  HcObj.dualVec1)...
-             + sin(x(:, 1:2) *  HcObj.dualVec2)...
-             - sin(x(:, 1:2) * (HcObj.dualVec1 + HcObj.dualVec2));
+HcObj.V = @(x) 10 * cos(x(:, 1:2) *  HcObj.dualVec1) +...
+               10 * cos(x(:, 1:2) *  HcObj.dualVec2) +...
+               10 * cos(x(:, 1:2) * (HcObj.dualVec1  + HcObj.dualVec2));
+
+HcObj.W = @(x)      sin(x(:, 1:2) *  HcObj.dualVec1) +...
+                    sin(x(:, 1:2) *  HcObj.dualVec2) +...
+                    sin(x(:, 1:2) * (HcObj.dualVec1  + HcObj.dualVec2));
 
 % Edge
 HcObj.edge.a1 =  1;
 HcObj.edge.b1 =  0;
 
+% Problem type ('interior' or 'interface')
+pbinputs.problem_type = 'interface';
+
 % Domain wall 
 HcObj.kappa = @(s) -1 + 2*FEPack.tools.domainwall(s+0.5);
-pbinputs.delta = 1;
+pbinputs.delta = 10;
 
 %% Energy/parallel quasi-momentum range
 pbinputs.minKpar = -pi;
 pbinputs.maxKpar = +pi;
-pbinputs.numKpar = 8;
+pbinputs.numKpar = 16;
 pbinputs.center_parallel_quasi_momentum_around_K = false;
 
 % Energy range
-pbinputs.minEgy = 0; % 17.5460-1e-1;
-pbinputs.maxEgy = 25;% 17.5460+1e-1;
-pbinputs.numEgy = 8;
+pbinputs.minEgy = 11.7341-10; % 17.5460-1e-1;
+pbinputs.maxEgy = 11.7341+10;% 17.5460+1e-1;
+pbinputs.numEgy = 16;
 
 %% Meshes and boundary conditions
 % # nodes per X/Y edge for periodicity cells
@@ -58,12 +62,16 @@ opts.parallel_use = false;
 opts.parallel_numcores = 4;
 
 % plot the coefficients
-opts.plot_coefficients = true;
+opts.plot_coefficients = false;
 
 % Plot dispersion functions, save them
 opts.plot_disp = false;
 opts.save_disp = true;
 
+%% Initialization
+[mesh_pos, mesh_neg, mesh_int, op_pos, op_neg, op_int, BCstruct_pos, BCstruct_neg] = construct_mesh_and_FEmatrices(pbinputs, HcObj);
+
+%% Compute indicator for edge state curves
 numKcell = 2;
 numEcell = 2;
 
@@ -92,8 +100,17 @@ for idK = 1:numKcell
     pbinputs.minEgy  = Egies(idE);
     pbinputs.maxEgy  = Egies(idE+1);
 
+    BBkpar = [pbinputs.minKpar, pbinputs.maxKpar];
+    BBEgy  = [pbinputs.minEgy,  pbinputs.maxEgy];
+    dispmesh = FEPack.meshes.MeshRectangle(0, BBkpar, BBEgy, pbinputs.numKpar, pbinputs.numEgy);
+
     %% Computations
-    [dispmesh, val] = launch_edge_states_rational(pbinputs, HcObj, opts);
+    val = edge_states_rational(...
+      dispmesh.points(:, 1:2),...
+      op_pos, mesh_pos, BCstruct_pos,...
+      op_neg, mesh_neg, BCstruct_neg,...
+      op_int, mesh_int, pbinputs.problem_type,...
+      opts.parallel_use, opts.parallel_numcores, opts.plot_coefficients);
 
     %% Plot the result
     if (opts.plot_disp)
@@ -122,13 +139,10 @@ if (opts.plot_disp)
 end
 
 
-%% Function
-function [dispmesh, val] = launch_edge_states_rational(pbinputs, HcObj, opts)
-
-  BBkpar = [pbinputs.minKpar, pbinputs.maxKpar];
-  BBlambda = [pbinputs.minEgy, pbinputs.maxEgy];
-
-  %% Operators
+%% Auxiliary functions
+function [mesh_pos, mesh_neg, mesh_int, op_pos, op_neg, op_int, BCstruct_pos, BCstruct_neg] = construct_mesh_and_FEmatrices(pbinputs, HcObj)
+  
+  %% Coefficients
   % Make sure the edge coefficients are coprime integers
   a1 = HcObj.edge.a1;
   b1 = HcObj.edge.b1;
@@ -164,27 +178,30 @@ function [dispmesh, val] = launch_edge_states_rational(pbinputs, HcObj, opts)
   % (-) half-guide
   op_neg.Tmat = Tmat;
   op_neg.vect = Tvec;
-  op_neg.funQ = @(x) Vpot(x) + pbinputs.delta * Wpot(x);
+  op_neg.funQ = @(x) Vpot(x) - pbinputs.delta * Wpot(x);
   op_neg.funP = 1;
   op_neg.funR = 1;
 
   % Interior domain
-  yInt = ceil(1/(2*pi*pbinputs.delta));
-  BBint = [-yInt, yInt];
-  op_int.Tmat = Tmat;
-  op_int.vect = Tvec;
-  % op_int.funQ = @(x) Vpot(x) + pbinputs.delta * HcObj.kappa(2*pi*pbinputs.delta * x(:, 2)) .* Wpot(x);
-  op_int.funQ = Wpot;
-  op_int.funP = 1;
-  op_int.funR = 1;
+  if strcmpi(pbinputs.problem_type, 'interior')
+    yInt = ceil(1/(2*pi*pbinputs.delta));
+    BBint = [-yInt, yInt];
+    op_int.Tmat = Tmat;
+    op_int.vect = Tvec;
+    op_int.funQ = @(x) Vpot(x) + pbinputs.delta * HcObj.kappa(2*pi*pbinputs.delta * x(:, 2)) .* Wpot(x);
+    op_int.funP = 1;
+    op_int.funR = 1;
+  else
+    op_int = [];
+    BBint = [];
+  end
 
-  % Launch it!
-  [dispmesh, val] = edge_states_rational(...
-    BBkpar, pbinputs.numKpar,...
-    BBlambda, pbinputs.numEgy,...
+  %% Initialization
+  [mesh_pos, mesh_neg, mesh_int, op_pos, op_neg, op_int, BCstruct_pos, BCstruct_neg] = initialize_edge_states_rational(...
     op_pos, pbinputs.numNodesXpos, pbinputs.numNodesYpos, pbinputs.bc_basis_functions_pos,...
     op_neg, pbinputs.numNodesXneg, pbinputs.numNodesYneg, pbinputs.bc_basis_functions_neg,...
     op_int, BBint, pbinputs.numNodesXint, pbinputs.numNodesYint,...
-    opts.parallel_use, opts.parallel_numcores, opts.plot_coefficients);
+    pbinputs.problem_type...
+  );
 
 end

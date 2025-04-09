@@ -83,7 +83,7 @@ function [Edirac, minEgy, maxEgy, phi1K] = compute_dirac_range(...
   diff_disp = abs(eigvals(2:end) - eigvals(1:end-1));
   [ecartmin, Imin] = min(diff_disp); 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  Imin = 1;     % À SUPPRIMER
+  % Imin = 1;     % À SUPPRIMER
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   Edirac = eigvals(Imin);
   disp(ecartmin);

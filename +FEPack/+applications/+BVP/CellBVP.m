@@ -87,7 +87,7 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
       % -Delta(u) + u = 1,
       % combined with homogeneous Neumann conditions on the boundary,
       % is solved
-      defaultBilinearForm = @(dom, u, v) FEPack.pdes.Form.intg(dom, grad(u)*grad(v) + u*v);
+      defaultBilinearForm = @(dom, u, v) FEPack.pdes.Form.intg(dom, grad(u, dimension)*grad(v, dimension) + u*v);
       defaultLinearForm = @(dom, v) FEPack.pdes.Form.intg(dom, v);
       defaultBC = @(u, varargin) FEPack.applications.symBC.symNeumannBC(dimension, u, varargin{:}); 
       % defaultBasis = 'Lagrange';
@@ -99,7 +99,7 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
       validBB = @(BB) isnumeric(BB) && ismatrix(BB) && (size(BB, 1) == dimension) && (size(BB, 2) == 2);
       validSymBC = @(symBC) isempty(symBC) || isa(symBC, 'FEPack.applications.symBC.SymBoundaryCondition');
       validBilinearForm = @(blf) isa(blf, 'function_handle');
-      validLinearForm = @(lf) isa(lf, 'function_handle') || (isa(lf, 'double') && (length(lf) == 1));
+      validLinearForm = @(lf) isa(lf, 'function_handle') || (isscalar(lf));
       % validBasis = @(sb) any(validatestring(sb, expectedBases));
 
       % Add inputs
@@ -428,7 +428,7 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
         elseif (rank(BCneu) == 1)
 
           % ==================================================================== %
-          % This a case encompasses variations of (quasi-)periodic conditions    %
+          % This case encompasses variations of (quasi-)periodic conditions    %
           % mixed condition, or many exotic (Cauchy-like) boundary conditions    %
           % which I do not know how (or need) to solve.                          %
           %                                                                      %
@@ -501,7 +501,7 @@ classdef CellBVP < FEPack.applications.BVP.BVPObject
                            'test doivent verifier une condition ', ...
                            'essentielle differente de celle de ', ...
                            'la solution.\nDe telles conditions ne sont ', ...
-                           'pas prises en charge.']));  %#ok
+                           'pas prises en charge.']));
 
           else
 
