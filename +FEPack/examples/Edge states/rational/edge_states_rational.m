@@ -233,7 +233,7 @@ function val = edge_states_rational(...
         if (length(err_obj.message) >= num_err) &&...
           (strcmp(err_obj.message(1:num_err), err_prefix))
           % Some eigenvalues of the Riccati operator are on the unit circle
-          val(idI) = 0;
+          val(idI) = NaN;
         else
           % Unknown error
           rethrow(err_obj);
@@ -348,7 +348,7 @@ function val = edge_states_rational(...
         if (length(err_obj.message) >= num_err) &&...
           (strcmp(err_obj.message(1:num_err), err_prefix))
           % Some eigenvalues of the Riccati operator are on the unit circle
-          val(idI) = 0;
+          val(idI) = NaN;
         else
           % Unknown error
           rethrow(err_obj);
