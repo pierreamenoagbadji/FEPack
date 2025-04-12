@@ -1,3 +1,15 @@
+figure;
+set(groot,'defaultAxesTickLabelInterpreter','latex');
+set(groot,'defaulttextinterpreter','latex');
+set(groot,'defaultLegendInterpreter','latex');
+out = load('outputs/qt.mat');
+qt = out.qt;
+subplot(1, 2, 1);
+qt.visualize_cache% (rootBB);
+subplot(1, 2, 2);
+qt.visualize% (rootBB);
+
+%%
 numKcell = 6;
 numEcell = 4;
 

@@ -58,8 +58,8 @@ pbinputs.bc_basis_functions_neg = "Lagrange";
 
 %% Misc. 
 % Should you use parallel computing?
-opts.parallel_use = false;
-opts.parallel_numcores = 4;
+opts.parallel_use = true;
+opts.parallel_numcores = 2;
 
 % plot the coefficients
 opts.plot_coefficients = false;
@@ -72,29 +72,41 @@ opts.save_disp = true;
 [mesh_pos, mesh_neg, mesh_int, op_pos, op_neg, op_int, BCstruct_pos, BCstruct_neg] = construct_mesh_and_FEmatrices(pbinputs, HcObj);
 
 %% Compute indicator for edge state curves
-% rootBB = [0 1 0 1];
 rootBB = [pbinputs.minKpar, pbinputs.minEgy,...
           pbinputs.maxKpar, pbinputs.maxEgy];
 maxDepth = 5;
 minDepthForce = 2;
-rules = @(fvals) (any(abs(fvals) > 10) && ~all(abs(fvals) > 10)) ||...
-                 (any(isnan(fvals)) && ~all(isnan(fvals)));
+rules = @(fvals) (any(abs(fvals) > 10, 2) & ~all(abs(fvals) > 10, 2)) |...
+                 (any(isnan(fvals), 2) & ~all(isnan(fvals), 2));
 
-qt = FEPack.meshes.Quadtree(maxDepth, rootBB, rules, true, 2);
+qt = FEPack.meshes.Quadtree(maxDepth, rootBB, rules);
 
-indicator_function = @(k, E) edge_states_rational(...
-      [k, E],...
+indicator_function = @(P) edge_states_rational(...
+      P,...
       op_pos, mesh_pos, BCstruct_pos,...
       op_neg, mesh_neg, BCstruct_neg,...
       op_int, mesh_int, pbinputs.problem_type,...
       opts.parallel_use, opts.parallel_numcores, opts.plot_coefficients);
 qt = qt.refine(indicator_function, minDepthForce);
-%
-figure;
-subplot(1, 2, 1);
-qt.visualize_cache(rootBB);
-subplot(1, 2, 2);
-qt.visualize(rootBB);
+
+% Plot the result
+if (opts.plot_disp)
+  figure;
+  set(groot,'defaultAxesTickLabelInterpreter','latex');
+  set(groot,'defaulttextinterpreter','latex');
+  set(groot,'defaultLegendInterpreter','latex');
+  
+  subplot(1, 2, 1);
+  qt.visualize_cache(rootBB);
+  subplot(1, 2, 2);
+  qt.visualize(rootBB);
+end
+
+% Save the result
+if (opts.save_disp)
+  save('outputs/qt', 'qt', '-v7.3');
+end
+
 
 % %% Compute indicator for edge state curves
 % numKcell = 2;

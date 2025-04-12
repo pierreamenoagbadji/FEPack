@@ -92,6 +92,17 @@ function val = edge_states_rational(...
     ecs_int = (((u|edge0xInt) - (u|edge1xInt)) == 0.0);
     ecs_int.applyEcs;
     PPint = ecs_int.P;
+  else
+    % This is apparently important when using parallel computing (parfor)
+    mat_int_gradu_gradv = [];
+    mat_int_gradu_vectv = [];
+    mat_int_vectu_gradv = [];
+    mat_int_vectu_vectv = [];
+    mat_int_funQ_u_v    = [];
+    mat_int_funR_u_v    = [];
+    edgeYmaxInt = [];
+    edgeYminInt = [];
+    PPint = [];
   end
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -148,9 +159,6 @@ function val = edge_states_rational(...
         BCstruct_pos = init_BCstruct_pos;
         BCstruct_pos.BCu  = 1i*lambda;
         BCstruct_pos.BCdu = 1;
-        %
-        % BCstruct_pos.BCu  = 1;
-        % BCstruct_pos.BCdu = 0;
 
         % Half-guide problem
         [~, ~, ~, ~, ~, BCstruct_pos, boundary_op_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, 2, AApos, BCstruct_pos, 0, opts);
@@ -171,9 +179,6 @@ function val = edge_states_rational(...
         BCstruct_neg = init_BCstruct_neg;
         BCstruct_neg.BCu  = -1i*lambda;
         BCstruct_neg.BCdu = 1;
-        %
-        % BCstruct_neg.BCu  = 1;
-        % BCstruct_neg.BCdu = 0;
 
         % Half-guide problem
         [~, ~, ~, ~, ~, BCstruct_neg, boundary_op_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, 2, AAneg, BCstruct_neg, 0, opts);
