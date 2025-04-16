@@ -23,7 +23,7 @@ HcObj.W = @(x)      sin(x(:, 1:2) *  HcObj.dualVec1) +...
 
 % Edge
 HcObj.edge.a1 =  1;
-HcObj.edge.b1 =  0;
+HcObj.edge.b1 =  2;
 
 % Problem type ('interior' or 'interface')
 pbinputs.problem_type = 'interface';
@@ -45,12 +45,12 @@ pbinputs.numEgy = 16;
 
 %% Meshes and boundary conditions
 % # nodes per X/Y edge for periodicity cells
-pbinputs.numNodesXpos = 16;
-pbinputs.numNodesYpos = 16; 
-pbinputs.numNodesXneg = 16;
-pbinputs.numNodesYneg = 16;
-pbinputs.numNodesXint = 16;
-pbinputs.numNodesYint = 16;
+pbinputs.numNodesXpos = 32;
+pbinputs.numNodesYpos = 32; 
+pbinputs.numNodesXneg = 32;
+pbinputs.numNodesYneg = 32;
+pbinputs.numNodesXint = 32;
+pbinputs.numNodesYint = 32;
 
 % Basis functions for boundary conditions ("Lagrange" or "Fourier")
 pbinputs.bc_basis_functions_pos = "Lagrange";
@@ -58,14 +58,14 @@ pbinputs.bc_basis_functions_neg = "Lagrange";
 
 %% Misc. 
 % Should you use parallel computing?
-opts.parallel_use = true;
+opts.parallel_use = false;
 opts.parallel_numcores = 2;
 
 % plot the coefficients
 opts.plot_coefficients = false;
 
 % Plot dispersion functions, save them
-opts.plot_disp = false;
+opts.plot_disp = true;
 opts.save_disp = true;
 
 %% Initialization
@@ -74,10 +74,20 @@ opts.save_disp = true;
 %% Compute indicator for edge state curves
 rootBB = [pbinputs.minKpar, pbinputs.minEgy,...
           pbinputs.maxKpar, pbinputs.maxEgy];
-maxDepth = 5;
-minDepthForce = 2;
-rules = @(fvals) (any(abs(fvals) > 10, 2) & ~all(abs(fvals) > 10, 2)) |...
-                 (any(isnan(fvals), 2) & ~all(isnan(fvals), 2));
+maxDepth = 6;
+force_depth = 2;
+force_depth = min(force_depth, maxDepth);
+threshold = 1e2;
+
+on_band_border = @(fvals) (any(isnan(fvals), 2) & ~all(isnan(fvals), 2));
+on_edge_border = @(fvals) (any(abs(fvals) > threshold, 2) & ~all(abs(fvals) > threshold, 2));
+early_split    = @(depth) (depth <= force_depth);
+
+% The rule: split leaves on the border of continuous spectrum XOR
+% min depth hasn't been reached yet or the indicator function is 
+% above a threshold.
+rules = @(fvals, depth) ( on_band_border(fvals)) |...
+                        (~on_band_border(fvals)  & (early_split(depth) | on_edge_border(fvals)));
 
 qt = FEPack.meshes.Quadtree(maxDepth, rootBB, rules);
 
@@ -87,7 +97,8 @@ indicator_function = @(P) edge_states_rational(...
       op_neg, mesh_neg, BCstruct_neg,...
       op_int, mesh_int, pbinputs.problem_type,...
       opts.parallel_use, opts.parallel_numcores, opts.plot_coefficients);
-qt = qt.refine(indicator_function, minDepthForce);
+
+qt = qt.refine(indicator_function);
 
 % Plot the result
 if (opts.plot_disp)

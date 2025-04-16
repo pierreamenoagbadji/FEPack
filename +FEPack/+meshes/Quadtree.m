@@ -1,7 +1,8 @@
 %> @file Quadtree.m
 %> @brief Contains the meshes.Quadtree class.
 % =========================================================================== %
-%> @brief Class for rectangular grids with possible local refinement
+%> @brief Quadtree structure used to locally refine rectangular
+% grids based on splitting rules that may involve an indicator function
 %>
 %> Coded with the help of DeepSeek
 % =========================================================================== %
@@ -33,16 +34,24 @@ classdef Quadtree < FEPack.FEPackObject
       % function obj = Quadtree(maxDepth, rootBB)
       % Initialize quadtree with root node
       %
-      % inputs: maxDepth (integer), maximum depth
-      %         rootBB 4-sized vector containing 
+      % inputs: * maxDepth (integer), maximum depth
+      %         * rootBB 4-sized vector containing 
       %                [xmin, ymin, xmax, ymax, depth]
-      %         rules (function handle) that takes 
-      %               a Nxp vector and returns a Nx1
-      %               boolean 
+      %         * rules (function handle) that takes 
+      %                 as inputs 
+      %               - a Nxp vector representing
+      %               values (p = 4 is the number of corners)
+      %               - a Nx1 vector containing leaves depths
+      %               and returns a Nx1 boolean 
       if (nargin < 3)
+        % Default rule: force early split, then split leaves where
+        % the indicator function is above a certain threshold
         threshold = 1e2;
-        rules = @(fvals) (any(abs(fvals) > threshold, 2) &...
-                         ~all(abs(fvals) > threshold, 2));
+        force_depth = min(2, maxDepth);
+        blow_up_rule = @(fvals) (any(abs(fvals) > threshold, 2) &...
+                                ~all(abs(fvals) > threshold, 2));
+        early_split_rule = @(depth) (depth <= force_depth);
+        rules = @(fvals, depth) early_split_rule(depth) | blow_up_rule(fvals);
       end
       if (nargin < 2)
         rootBB = [0, 0, 1, 1];
@@ -109,20 +118,15 @@ classdef Quadtree < FEPack.FEPackObject
       val = val(idExists);
     end
     
-    function obj = refine(obj, indicator_function, minDepthForce)
+    function obj = refine(obj, indicator_function)
       % Main refinement loop with cached evaluations
-
-      if (nargin < 4)
-        minDepthForce = 2;
-      end
 
       for iter = 1:obj.maxDepth
         newLeaves = [];
         nodes = obj.leaves;
-        force_depth = min(minDepthForce, obj.maxDepth-1); % Force early splits
         
         % Find leaves that should be split
-        should_split = obj.check_node(nodes, indicator_function, force_depth);
+        should_split = obj.check_node(nodes, indicator_function);
 
         % Nodes that are not split are added to the new leaves
         newLeaves = [newLeaves; nodes(~should_split, :)]; %#ok
@@ -131,6 +135,8 @@ classdef Quadtree < FEPack.FEPackObject
         newLeaves = [newLeaves; obj.split_node(nodes(should_split, :))]; %#ok
 
         obj.leaves = newLeaves;
+        % obj.visualize();
+        % pause;
       end
     end
     
@@ -138,13 +144,16 @@ classdef Quadtree < FEPack.FEPackObject
       % obj = SET_SPLITTING_RULES(obj, rules)
       % Define the rules used for splitting
       %
-      % inputs: rules (function handle) that
-      % take a Nxp vector (p = 4 is the number)
-      % of corners) and returns a Nx1 boolean 
+      % inputs: * rules (function handle) that takes 
+      %                 as inputs 
+      %               - a Nxp vector representing
+      %               values (p = 4 is the number of corners)
+      %               - a Nx1 vector containing leaves depths
+      %               and returns a Nx1 boolean 
       obj.splitting_rules = rules;
     end
 
-    function should_split = check_node(obj, nodes, indicator_function, force_depth)
+    function should_split = check_node(obj, nodes, indicator_function)
       % Node evaluation with caching
       xmin  = nodes(:, 1); ymin = nodes(:, 2);
       xmax  = nodes(:, 3); ymax = nodes(:, 4);
@@ -168,7 +177,7 @@ classdef Quadtree < FEPack.FEPackObject
         obj = obj.record_value(corners{idJ}(~exists, :), fvals(~exists, idJ));
       end
       
-      should_split = (depth <= force_depth) | (obj.splitting_rules(fvals));
+      should_split = obj.splitting_rules(fvals, depth);
     end
     
     function children = split_node(~, nodes)
@@ -186,23 +195,30 @@ classdef Quadtree < FEPack.FEPackObject
       children(4:4:4*N, :) = [xmidpoints, ymidpoints, nodes(:,3), nodes(:,4), newDepth];
     end
     
-    function visualize(obj, axis_lim)
+    function visualize(obj, axis_lim, max_visualization_depth)
 
-      % Visualize quadtree
+      % Visualize quadtree up to a certain depth
+      if (nargin < 3)
+        max_visualization_depth = obj.maxDepth;
+      end
+
       % figure;
       axis equal;
       % axis([0 1 0 1]);
       hold on;
       
+      validId = (obj.leaves(:, 5) <= max_visualization_depth);
+      valid_leaves = obj.leaves(validId, :);
+
       % Plot all nodes
-      for idI = 1:size(obj.leaves, 1)
-        node = obj.leaves(idI, :);
+      for idI = 1:size(valid_leaves, 1)
+        node = valid_leaves(idI, :);
         rectangle('Position', [node(1) node(2) (node(3)-node(1)) (node(4)-node(2))], 'EdgeColor', 'k');
       end
 
       title(sprintf('Quadtree Approximation (Depth %d)', obj.maxDepth));
       drawnow;
-      if (nargin >= 2)
+      if (nargin >= 2) && ~isempty(axis_lim)
         xlim([axis_lim(1), axis_lim(3)]);
         ylim([axis_lim(2), axis_lim(4)]);
       end
@@ -219,6 +235,7 @@ classdef Quadtree < FEPack.FEPackObject
       cmap = parula(256);
       
       % Match cache points to leaves and compute mean values
+      tic;
       leaf_vals = NaN(size(obj.leaves, 1), 1);
       for idI = 1:size(obj.leaves, 1)
         node = obj.leaves(idI, :);
@@ -233,17 +250,20 @@ classdef Quadtree < FEPack.FEPackObject
             leaf_vals(idI) = mean(obj.cache_vals(in_leaf));
         end
       end
-      
+      tps = toc;
+      fprintf('Time 1: %f seconds.\n', tps);
+
       % Calculate value range using only valid leaves
       valid_vals = leaf_vals(~isnan(leaf_vals));
       if isempty(valid_vals)
         error('No cached values found in quadtree leaves');
       end
       
-      max_val = prctile(valid_vals, 95); % 95th percentile to avoid outliers
+      max_val = prctile(valid_vals, 98); % 98th percentile to avoid outliers
       min_val = min(valid_vals);
       
       % Plot each cell with color based on cached values
+      tic;
       for idI = 1:size(obj.leaves, 1)
         node = obj.leaves(idI, :);
         if ~isnan(leaf_vals(idI))
@@ -266,6 +286,8 @@ classdef Quadtree < FEPack.FEPackObject
                     'EdgeColor', 'none');
         end
       end
+      tps = toc;
+      fprintf('Time 2: %f seconds.\n', tps);
       
       if (nargin >= 2)
         xlim([axis_lim(1), axis_lim(3)]);

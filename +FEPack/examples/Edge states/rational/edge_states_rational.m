@@ -163,7 +163,7 @@ function val = edge_states_rational(...
         % Half-guide problem
         [~, ~, ~, ~, ~, BCstruct_pos, boundary_op_pos] = PeriodicHalfGuideBVP(mesh_pos, +1, 2, AApos, BCstruct_pos, 0, opts);
         tps = toc;
-        fprintf('%d (+) guide elapsed time: %f seconds.\n', tps);
+        fprintf('(+) guide elapsed time: %f seconds.\n', tps);
 
         % ========= (-) half-guide
         % FE matrix
@@ -183,7 +183,7 @@ function val = edge_states_rational(...
         % Half-guide problem
         [~, ~, ~, ~, ~, BCstruct_neg, boundary_op_neg] = PeriodicHalfGuideBVP(mesh_neg, -1, 2, AAneg, BCstruct_neg, 0, opts);
         tps = toc;
-        fprintf('%d (-) guide elapsed time: %f seconds.\n', idI, tps);
+        fprintf('(-) guide elapsed time: %f seconds.\n', idI, tps);
         
         if strcmpi(problem_type, 'interior')
 
@@ -210,7 +210,7 @@ function val = edge_states_rational(...
 
           AAint0 = PPint * (AAint - SSpos - SSneg) * PPint.';
           tps = toc;
-          fprintf('%d interior domain elapsed time: %f seconds.\n', idI, tps);
+          fprintf('interior domain elapsed time: %f seconds.\n', idI, tps);
 
           % Compute infinity norm of resolvent
           tic;
@@ -218,7 +218,7 @@ function val = edge_states_rational(...
           % val(idI) = det(AAint0); % SURTOUT PAS !
           val(idI) = condest(AAint0);
           tps = toc;
-          fprintf('%d interior domain resolvent elapsed time: %f seconds.\n', idI, tps);
+          fprintf('interior domain resolvent elapsed time: %f seconds.\n', idI, tps);
 
         elseif strcmpi(problem_type, 'interface')
 
@@ -226,7 +226,7 @@ function val = edge_states_rational(...
           tic;
           val(idI) = cond(boundary_op_pos + boundary_op_neg);
           tps = toc;
-          fprintf('%d interface problem elapsed time: %f seconds.\n', idI, tps);
+          fprintf('interface problem elapsed time: %f seconds.\n', idI, tps);
           
         else
           error(['Unrecognized value ''', problem_type, ''' for problem_type. Possible values are ''interior'' and ''interface''.']);
